@@ -2371,6 +2371,31 @@ edge Knows: Person -> Person
 "#
     }
 
+    fn vector_nullable_keyed_schema_src() -> &'static str {
+        r#"node Doc {
+    slug: String @key
+    embedding: Vector(4)?
+    title: String
+}
+"#
+    }
+
+    fn vector_nullable_keyed_initial_data_src() -> &'static str {
+        r#"{"type": "Doc", "data": {"slug": "a", "embedding": [1.0, 0.0, 0.0, 0.0], "title": "A"}}
+"#
+    }
+
+    fn vector_nullable_keyed_append_data_src() -> &'static str {
+        r#"{"type": "Doc", "data": {"slug": "b", "embedding": [0.0, 1.0, 0.0, 0.0], "title": "B"}}
+"#
+    }
+
+    fn vector_nullable_keyed_merge_data_src() -> &'static str {
+        r#"{"type": "Doc", "data": {"slug": "a", "embedding": [0.0, 0.0, 1.0, 0.0], "title": "A2"}}
+{"type": "Doc", "data": {"slug": "b", "embedding": [0.0, 1.0, 0.0, 0.0], "title": "B"}}
+"#
+    }
+
     fn nullable_unique_ok_data() -> &'static str {
         r#"{"type": "Person", "data": {"name": "Alice", "nick": null}}
 {"type": "Person", "data": {"name": "Bob", "nick": null}}
@@ -2439,6 +2464,22 @@ edge Knows: Person -> Person
             .find(|&i| name_col.value(i) == name)
             .map(|i| email_col.value(i).to_string())
             .unwrap()
+    }
+
+    fn doc_title_by_slug(batch: &RecordBatch, slug: &str) -> Option<String> {
+        let slug_col = batch
+            .column_by_name("slug")
+            .and_then(|c| c.as_any().downcast_ref::<arrow_array::StringArray>())?;
+        let title_col = batch
+            .column_by_name("title")
+            .and_then(|c| c.as_any().downcast_ref::<arrow_array::StringArray>())?;
+        (0..batch.num_rows()).find_map(|i| {
+            if slug_col.value(i) == slug {
+                Some(title_col.value(i).to_string())
+            } else {
+                None
+            }
+        })
     }
 
     fn test_dir(name: &str) -> TempDir {
@@ -2834,6 +2875,62 @@ edge Knows: Person -> Person
         let persons = db.storage.get_all_nodes("Person").unwrap().unwrap();
         assert_eq!(persons.num_rows(), 3);
         assert_eq!(person_age_by_name(&persons, "Alice"), Some(31));
+    }
+
+    #[tokio::test]
+    async fn test_load_mode_append_vectors_after_reopen() {
+        let dir = test_dir("mode_append_vectors_after_reopen");
+        let path = dir.path();
+
+        let mut db = Database::init(path, vector_nullable_keyed_schema_src())
+            .await
+            .unwrap();
+        db.load_with_mode(
+            vector_nullable_keyed_initial_data_src(),
+            LoadMode::Overwrite,
+        )
+        .await
+        .unwrap();
+        drop(db);
+
+        let mut reopened = Database::open(path).await.unwrap();
+        reopened
+            .load_with_mode(vector_nullable_keyed_append_data_src(), LoadMode::Append)
+            .await
+            .unwrap();
+
+        let docs = reopened.storage.get_all_nodes("Doc").unwrap().unwrap();
+        assert_eq!(docs.num_rows(), 2);
+        assert_eq!(doc_title_by_slug(&docs, "a").as_deref(), Some("A"));
+        assert_eq!(doc_title_by_slug(&docs, "b").as_deref(), Some("B"));
+    }
+
+    #[tokio::test]
+    async fn test_load_mode_merge_vectors_after_reopen() {
+        let dir = test_dir("mode_merge_vectors_after_reopen");
+        let path = dir.path();
+
+        let mut db = Database::init(path, vector_nullable_keyed_schema_src())
+            .await
+            .unwrap();
+        db.load_with_mode(
+            vector_nullable_keyed_initial_data_src(),
+            LoadMode::Overwrite,
+        )
+        .await
+        .unwrap();
+        drop(db);
+
+        let mut reopened = Database::open(path).await.unwrap();
+        reopened
+            .load_with_mode(vector_nullable_keyed_merge_data_src(), LoadMode::Merge)
+            .await
+            .unwrap();
+
+        let docs = reopened.storage.get_all_nodes("Doc").unwrap().unwrap();
+        assert_eq!(docs.num_rows(), 2);
+        assert_eq!(doc_title_by_slug(&docs, "a").as_deref(), Some("A2"));
+        assert_eq!(doc_title_by_slug(&docs, "b").as_deref(), Some("B"));
     }
 
     #[tokio::test]

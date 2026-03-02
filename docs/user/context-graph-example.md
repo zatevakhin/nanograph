@@ -133,14 +133,10 @@ nanograph check --db omni.nano --query examples/revops/revops.gq
 nanograph run --db omni.nano --query examples/revops/revops.gq --name all_clients
 ```
 
-```
-+----------------+------------+---------+---------+-------------+
-| slug           | name       | status  | company | tags        |
-+----------------+------------+---------+---------+-------------+
-| cli-jamie-lee  | Jamie Lee  | healthy |         | [connector] |
-| cli-priya-shah | Priya Shah | focus   | Stripe  | [client]    |
-+----------------+------------+---------+---------+-------------+
-```
+| slug | name | status | company | tags |
+|------|------|--------|---------|------|
+| cli-jamie-lee | Jamie Lee | healthy | | [connector] |
+| cli-priya-shah | Priya Shah | focus | Stripe | [client] |
 
 ### Decision trace — "Why did this happen?"
 
@@ -163,13 +159,9 @@ nanograph run --db omni.nano --query examples/revops/revops.gq \
   --name decision_trace --param opp=opp-stripe-migration
 ```
 
-```
-+------------------+------------------------------------+--------+------------------------------------------+---------+
-| title            | intent                             | name   | summary                                  | urgency |
-+------------------+------------------------------------+--------+------------------------------------------+---------+
-| Stripe Migration | Make proposal for Stripe migration | Andrew | Priya hates her current data vendor — ... | high    |
-+------------------+------------------------------------+--------+------------------------------------------+---------+
-```
+| title | intent | name | summary | urgency |
+|-------|--------|------|---------|---------|
+| Stripe Migration | Make proposal for Stripe migration | Andrew | Priya hates her current data vendor — ... | high |
 
 ### Full trace — Signal to Outcome
 
@@ -180,13 +172,9 @@ nanograph run --db omni.nano --query examples/revops/revops.gq \
   --name full_trace --param sig=sig-hates-vendor
 ```
 
-```
-+------------------------------------------+--------+------------------------------------+-----------------------------------------+------------------+-------+
-| summary                                  | name   | intent                             | resultSummary                           | title            | stage |
-+------------------------------------------+--------+------------------------------------+-----------------------------------------+------------------+-------+
-| Priya hates her current data vendor — ...| Andrew | Make proposal for Stripe migration | Proposal delivered to Priya Shah, de... | Stripe Migration | won   |
-+------------------------------------------+--------+------------------------------------+-----------------------------------------+------------------+-------+
-```
+| summary | name | intent | resultSummary | title | stage |
+|---------|------|--------|---------------|-------|-------|
+| Priya hates her current data vendor — ... | Andrew | Make proposal for Stripe migration | Proposal delivered to Priya Shah, de... | Stripe Migration | won |
 
 ### Signal to value — "What value did this intelligence create?"
 
@@ -195,13 +183,9 @@ nanograph run --db omni.nano --query examples/revops/revops.gq \
   --name signal_value --param sig=sig-hates-vendor
 ```
 
-```
-+------------------------------------------+------------------+-------+---------+------------+
-| summary                                  | title            | stage | amount  | name       |
-+------------------------------------------+------------------+-------+---------+------------+
-| Priya hates her current data vendor — ...| Stripe Migration | won   | 25000.0 | Priya Shah |
-+------------------------------------------+------------------+-------+---------+------------+
-```
+| summary | title | stage | amount | name |
+|---------|-------|-------|--------|------|
+| Priya hates her current data vendor — ... | Stripe Migration | won | 25000.0 | Priya Shah |
 
 ### Signal to project — Multi-hop traversal
 
@@ -212,13 +196,9 @@ nanograph run --db omni.nano --query examples/revops/revops.gq \
   --name signal_to_project --param sig=sig-hates-vendor
 ```
 
-```
-+------------------------------------------+------------------+---------------+--------+
-| summary                                  | title            | name          | status |
-+------------------------------------------+------------------+---------------+--------+
-| Priya hates her current data vendor — ...| Stripe Migration | Data Pipeline | active |
-+------------------------------------------+------------------+---------------+--------+
-```
+| summary | title | name | status |
+|---------|-------|------|--------|
+| Priya hates her current data vendor — ... | Stripe Migration | Data Pipeline | active |
 
 ### Execution trace — Reverse through actions
 
@@ -229,13 +209,9 @@ nanograph run --db omni.nano --query examples/revops/revops.gq \
   --name execution_trace --param opp=opp-stripe-migration
 ```
 
-```
-+------------------+-----------+--------------------------------------------------------+------------------------------------+--------+
-| title            | operation | resultSummary                                          | intent                             | name   |
-+------------------+-----------+--------------------------------------------------------+------------------------------------+--------+
-| Stripe Migration | send      | Proposal delivered to Priya Shah, deal advanced to won | Make proposal for Stripe migration | Andrew |
-+------------------+-----------+--------------------------------------------------------+------------------------------------+--------+
-```
+| title | operation | resultSummary | intent | name |
+|-------|-----------|---------------|--------|------|
+| Stripe Migration | send | Proposal delivered to Priya Shah, deal advanced to won | Make proposal for Stripe migration | Andrew |
 
 ### Enrichment from policy
 
@@ -246,13 +222,9 @@ nanograph run --db omni.nano --query examples/revops/revops.gq \
   --name enrichment_from_policy --param pol=pol-client-screen-v2
 ```
 
-```
-+------------------+-----------------------------+
-| name             | title                       |
-+------------------+-----------------------------+
+| name | title |
+|------|-------|
 | Screening Policy | Stripe - Enrichment Profile |
-+------------------+-----------------------------+
-```
 
 ### Policy versioning
 
@@ -263,13 +235,9 @@ nanograph run --db omni.nano --query examples/revops/revops.gq \
   --name policy_versions --param key=client-screen
 ```
 
-```
-+------------------+---------------------+---------------------+---------------------+
-| name             | effectiveFrom       | name                | effectiveFrom       |
-+------------------+---------------------+---------------------+---------------------+
+| name | effectiveFrom | name | effectiveFrom |
+|------|---------------|------|---------------|
 | Screening Policy | 2026-01-15T00:00:00 | Screening Policy v1 | 2025-06-01T00:00:00 |
-+------------------+---------------------+---------------------+---------------------+
-```
 
 ### Pipeline summary — Aggregation
 
@@ -277,13 +245,9 @@ nanograph run --db omni.nano --query examples/revops/revops.gq \
 nanograph run --db omni.nano --query examples/revops/revops.gq --name pipeline_summary
 ```
 
-```
-+-------+-------+-------------+
 | stage | deals | total_value |
-+-------+-------+-------------+
-| won   | 1     | 25000.0     |
-+-------+-------+-------------+
-```
+|-------|-------|-------------|
+| won | 1 | 25000.0 |
 
 ## Adding search
 

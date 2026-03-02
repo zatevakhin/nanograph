@@ -9,6 +9,11 @@ EXAMPLES="$ROOT/examples/revops"
 TMP_DIR="$(mktemp -d /tmp/maintenance_e2e.XXXXXX)"
 DB="$TMP_DIR/maintenance_e2e.nano"
 DATA_APPEND="$TMP_DIR/append.jsonl"
+VECTOR_DB="$TMP_DIR/vector_load_modes.nano"
+VECTOR_SCHEMA="$TMP_DIR/vector_load_modes.pg"
+VECTOR_OVERWRITE_DATA="$TMP_DIR/vector_overwrite.jsonl"
+VECTOR_APPEND_DATA="$TMP_DIR/vector_append.jsonl"
+VECTOR_MERGE_DATA="$TMP_DIR/vector_merge.jsonl"
 
 cleanup() {
     rm -rf "$TMP_DIR"
@@ -30,6 +35,48 @@ assert_contains "$LOAD1_JSON" '"status":"ok"' "overwrite load --json status"
 
 LOAD2_JSON=$("$NG" --json load "$DB" --data "$DATA_APPEND" --mode append)
 assert_contains "$LOAD2_JSON" '"status":"ok"' "append load --json status"
+
+info "Running vector @embed append/merge regression checks..."
+cat > "$VECTOR_SCHEMA" << 'SCHEMA'
+node Lesson {
+    slug: String @key
+    summary: String
+    embedding: Vector(8)? @embed(summary)
+}
+SCHEMA
+
+cat > "$VECTOR_OVERWRITE_DATA" << 'DATA'
+{"type":"Lesson","data":{"slug":"lesson-1","summary":"alpha summary baseline"}}
+DATA
+
+cat > "$VECTOR_APPEND_DATA" << 'DATA'
+{"type":"Lesson","data":{"slug":"lesson-2","summary":"beta summary append"}}
+DATA
+
+cat > "$VECTOR_MERGE_DATA" << 'DATA'
+{"type":"Lesson","data":{"slug":"lesson-1","summary":"alpha summary updated"}}
+{"type":"Lesson","data":{"slug":"lesson-3","summary":"gamma summary merge insert"}}
+DATA
+
+VECTOR_INIT_JSON=$("$NG" --json init "$VECTOR_DB" --schema "$VECTOR_SCHEMA")
+assert_contains "$VECTOR_INIT_JSON" '"status":"ok"' "vector regression init --json status"
+
+VECTOR_OVERWRITE_JSON=$(NANOGRAPH_EMBEDDINGS_MOCK=1 "$NG" --json load "$VECTOR_DB" --data "$VECTOR_OVERWRITE_DATA" --mode overwrite)
+assert_contains "$VECTOR_OVERWRITE_JSON" '"status":"ok"' "vector regression overwrite load status"
+
+VECTOR_APPEND_JSON=$(NANOGRAPH_EMBEDDINGS_MOCK=1 "$NG" --json load "$VECTOR_DB" --data "$VECTOR_APPEND_DATA" --mode append)
+assert_contains "$VECTOR_APPEND_JSON" '"status":"ok"' "vector regression append load status"
+
+VECTOR_MERGE_JSON=$(NANOGRAPH_EMBEDDINGS_MOCK=1 "$NG" --json load "$VECTOR_DB" --data "$VECTOR_MERGE_DATA" --mode merge)
+assert_contains "$VECTOR_MERGE_JSON" '"status":"ok"' "vector regression merge load status"
+
+VECTOR_EXPORT_JSONL=$("$NG" export --db "$VECTOR_DB" --format jsonl)
+assert_contains "$VECTOR_EXPORT_JSONL" '"slug":"lesson-1"' "vector regression export includes updated key row"
+assert_contains "$VECTOR_EXPORT_JSONL" '"summary":"alpha summary updated"' "vector regression keyed merge updates summary"
+assert_contains "$VECTOR_EXPORT_JSONL" '"slug":"lesson-2"' "vector regression export includes appended row"
+assert_contains "$VECTOR_EXPORT_JSONL" '"slug":"lesson-3"' "vector regression export includes merge-inserted row"
+LESSON_ROW_COUNT=$(echo "$VECTOR_EXPORT_JSONL" | rg -c '"type":"Lesson"')
+assert_int_eq "$LESSON_ROW_COUNT" 3 "vector regression keeps expected row count after append+merge"
 
 info "Running compact command..."
 COMPACT_JSON=$("$NG" --json compact "$DB" --target-rows-per-fragment 1024)

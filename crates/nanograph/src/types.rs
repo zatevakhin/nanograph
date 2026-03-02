@@ -60,7 +60,7 @@ impl ScalarType {
                 let dim = i32::try_from(*dim)
                     .expect("vector dimension exceeds Arrow FixedSizeList i32 bound");
                 DataType::FixedSizeList(
-                    std::sync::Arc::new(arrow_schema::Field::new("item", DataType::Float32, false)),
+                    std::sync::Arc::new(arrow_schema::Field::new("item", DataType::Float32, true)),
                     dim,
                 )
             }
@@ -175,6 +175,17 @@ pub enum Direction {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use arrow_schema::{DataType, Field};
+    use std::sync::Arc;
+
+    #[test]
+    fn vector_to_arrow_uses_nullable_float32_child() {
+        let dt = ScalarType::Vector(4).to_arrow();
+        assert_eq!(
+            dt,
+            DataType::FixedSizeList(Arc::new(Field::new("item", DataType::Float32, true)), 4)
+        );
+    }
 
     #[test]
     fn scalar_type_from_str_name_rejects_vector_dimensions_outside_arrow_bounds() {

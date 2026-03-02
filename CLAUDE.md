@@ -23,7 +23,11 @@ bash tests/cli/run-cli-e2e.sh lifecycle  # single CLI scenario by name
 cargo clippy                             # lint
 cargo fmt                                # format
 RUST_LOG=debug cargo run -p nanograph-cli -- run ...  # enable tracing
+cargo build -p nanograph-ffi             # FFI crate (not in default-members)
+cargo build -p nanograph-ts              # TS SDK crate (not in default-members)
 ```
+
+Workspace `default-members` = `nanograph` + `nanograph-cli`. Plain `cargo build`/`cargo test` skip the FFI and TS SDK crates — target them explicitly with `-p`.
 
 **Requires `protoc`** (Protocol Buffers compiler) at build time for the Lance dependency. MSRV 1.85, Rust edition 2024. `debug = 0` in dev profile (no debuginfo — builds are faster but backtraces are address-only). Dependencies are compiled with `opt-level = 2` even in dev profile so tests run at reasonable speed while the nanograph crate itself stays unoptimized for fast rebuilds. Release profile uses `lto = "thin"` and `codegen-units = 16`.
 
@@ -185,11 +189,10 @@ Arrow 57, DataFusion 52, Lance 2.0 + lance-index 2.0 — these must stay compati
 ## Design Documents
 
 - `grammar.ebnf` — formal grammar for both DSLs, includes type rules (T1-T21; T10-T14 cover mutations, T15-T21 cover search/ordering)
-- `docs/dev/architecture.md` — system overview, module map, data flow
 - `docs/dev/backlog.md` — current backlog and priorities
 - `docs/dev/search.md` — search feature design (vector, text, hybrid)
-- `docs/dev/sdks.md` — SDK strategy (TypeScript in-repo via napi-rs, Swift via C ABI)
-- `docs/dev/ts-sdk.md` — TypeScript SDK implementation details (lock semantics, type conversion, build)
+- `docs/dev/typescript-sdk.md` — TypeScript SDK implementation details (lock semantics, type conversion, build)
+- `docs/dev/swift-sdk.md` — Swift SDK implementation details (C ABI, Swift Package wrapper)
 
 Source of truth for behavior is code. Update docs in the same PR when behavior changes.
 

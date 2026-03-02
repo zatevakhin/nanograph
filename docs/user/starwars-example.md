@@ -89,18 +89,14 @@ query keyword_search($q: String) {
 nanograph run --db sw.nano --query search-test/queries.gq --name keyword_search --param 'q=dark side'
 ```
 
-```
-+---------+------------------+
-| slug    | name             |
-+---------+------------------+
-| anakin  | Anakin Skywalker |
-| han     | Han Solo         |
-| leia    | Leia Organa      |
-| luke    | Luke Skywalker   |
-| maul    | Maul             |
-| obi-wan | Obi-Wan Kenobi   |
-+---------+------------------+
-```
+| slug | name |
+|------|------|
+| anakin | Anakin Skywalker |
+| han | Han Solo |
+| leia | Leia Organa |
+| luke | Luke Skywalker |
+| maul | Maul |
+| obi-wan | Obi-Wan Kenobi |
 
 ### Text search: fuzzy match
 
@@ -110,21 +106,17 @@ Tolerates typos — matches "Skywalker" even with slight variations:
 nanograph run --db sw.nano --query search-test/queries.gq --name fuzzy_search --param 'q=Skywalker'
 ```
 
-```
-+------------+------------------+
-| slug       | name             |
-+------------+------------------+
-| ahsoka     | Ahsoka Tano      |
-| anakin     | Anakin Skywalker |
-| din-djarin | Din Djarin       |
-| han        | Han Solo         |
-| leia       | Leia Organa      |
-| luke       | Luke Skywalker   |
-| obi-wan    | Obi-Wan Kenobi   |
-| padme      | Padmé Amidala    |
-| yoda       | Yoda             |
-+------------+------------------+
-```
+| slug | name |
+|------|------|
+| ahsoka | Ahsoka Tano |
+| anakin | Anakin Skywalker |
+| din-djarin | Din Djarin |
+| han | Han Solo |
+| leia | Leia Organa |
+| luke | Luke Skywalker |
+| obi-wan | Obi-Wan Kenobi |
+| padme | Padmé Amidala |
+| yoda | Yoda |
 
 ### Ranked text search: BM25
 
@@ -134,17 +126,13 @@ BM25 scores rank by term relevance (higher = more relevant):
 nanograph run --db sw.nano --query search-test/queries.gq --name bm25_search --param 'q=clone wars lightsaber'
 ```
 
-```
-+---------+------------------+---------------------+
-| slug    | name             | score               |
-+---------+------------------+---------------------+
-| maul    | Maul             | 2.0280410401645574  |
-| yoda    | Yoda             | 0.23748817133389355 |
-| ahsoka  | Ahsoka Tano      | 0.22663750001748606 |
-| obi-wan | Obi-Wan Kenobi   | 0.22309213435432632 |
-| anakin  | Anakin Skywalker | 0.19633594688216696 |
-+---------+------------------+---------------------+
-```
+| slug | name | score |
+|------|------|-------|
+| maul | Maul | 2.0280410401645574 |
+| yoda | Yoda | 0.23748817133389355 |
+| ahsoka | Ahsoka Tano | 0.22663750001748606 |
+| obi-wan | Obi-Wan Kenobi | 0.22309213435432632 |
+| anakin | Anakin Skywalker | 0.19633594688216696 |
 
 ### Vector search: semantic similarity
 
@@ -154,17 +142,13 @@ nanograph run --db sw.nano --query search-test/queries.gq --name bm25_search --p
 nanograph run --db sw.nano --query search-test/queries.gq --name semantic_search --param 'q=who turned evil'
 ```
 
-```
-+------------+----------------+--------------------+
-| slug       | name           | score              |
-+------------+----------------+--------------------+
-| han        | Han Solo       | 0.9980415368698449 |
-| ahsoka     | Ahsoka Tano    | 1.0046345156154508 |
-| din-djarin | Din Djarin     | 1.0240105612658987 |
-| maul       | Maul           | 1.0241794143160183 |
-| luke       | Luke Skywalker | 1.027392048768229  |
-+------------+----------------+--------------------+
-```
+| slug | name | score |
+|------|------|-------|
+| han | Han Solo | 0.9980415368698449 |
+| ahsoka | Ahsoka Tano | 1.0046345156154508 |
+| din-djarin | Din Djarin | 1.0240105612658987 |
+| maul | Maul | 1.0241794143160183 |
+| luke | Luke Skywalker | 1.027392048768229 |
 
 ### Hybrid search: RRF fusion
 
@@ -174,17 +158,13 @@ Combines vector and BM25 signals. RRF score is higher = better:
 nanograph run --db sw.nano --query search-test/queries.gq --name hybrid_search --param 'q=father and son conflict'
 ```
 
-```
-+------------+------------------+--------------------+--------------------+----------------------+
-| slug       | name             | semantic_distance  | lexical_score      | hybrid_score         |
-+------------+------------------+--------------------+--------------------+----------------------+
-| luke       | Luke Skywalker   | 0.9602065235745608 | 2.525812644333232  | 0.032266458495966696 |
-| din-djarin | Din Djarin       | 0.9478181841294104 | 0.9380762831416056 | 0.031754032258064516 |
-| anakin     | Anakin Skywalker | 0.9732102863093259 | 1.7514723677174175 | 0.031754032258064516 |
-| ahsoka     | Ahsoka Tano      | 0.9444194482165815 | 0.1682143690866992 | 0.03177805800756621  |
-| leia       | Leia Organa      | 0.989305766517369  | 0.9542918865678294 | 0.03125763125763126  |
-+------------+------------------+--------------------+--------------------+----------------------+
-```
+| slug | name | semantic_distance | lexical_score | hybrid_score |
+|------|------|-------------------|---------------|--------------|
+| luke | Luke Skywalker | 0.9602065235745608 | 2.525812644333232 | 0.032266458495966696 |
+| din-djarin | Din Djarin | 0.9478181841294104 | 0.9380762831416056 | 0.031754032258064516 |
+| anakin | Anakin Skywalker | 0.9732102863093259 | 1.7514723677174175 | 0.031754032258064516 |
+| ahsoka | Ahsoka Tano | 0.9444194482165815 | 0.1682143690866992 | 0.03177805800756621 |
+| leia | Leia Organa | 0.989305766517369 | 0.9542918865678294 | 0.03125763125763126 |
 
 Projecting all three scores is useful for debugging ranking behavior.
 
@@ -196,14 +176,10 @@ Pure edge traversal — no search predicates:
 nanograph run --db sw.nano --query search-test/queries.gq --name mentors_of --param 'slug=luke'
 ```
 
-```
-+---------+----------------+
-| slug    | name           |
-+---------+----------------+
+| slug | name |
+|------|------|
 | obi-wan | Obi-Wan Kenobi |
-| yoda    | Yoda           |
-+---------+----------------+
-```
+| yoda | Yoda |
 
 ### Graph + vector search: family semantic
 
@@ -214,14 +190,10 @@ nanograph run --db sw.nano --query search-test/queries.gq --name family_semantic
   --param 'slug=luke' --param 'q=chosen one prophecy'
 ```
 
-```
-+--------+------------------+
-| slug   | name             |
-+--------+------------------+
+| slug | name |
+|------|------|
 | anakin | Anakin Skywalker |
-| padme  | Padmé Amidala    |
-+--------+------------------+
-```
+| padme | Padmé Amidala |
 
 Anakin ranks first because his bio mentions the Chosen One prophecy.
 
@@ -234,14 +206,10 @@ nanograph run --db sw.nano --query search-test/queries.gq --name students_search
   --param 'mentor=obi-wan' --param 'q=dark side'
 ```
 
-```
-+--------+------------------+--------------------+
-| slug   | name             | score              |
-+--------+------------------+--------------------+
+| slug | name | score |
+|------|------|-------|
 | anakin | Anakin Skywalker | 0.6406223369077882 |
-| luke   | Luke Skywalker   | 0.6343308271593584 |
-+--------+------------------+--------------------+
-```
+| luke | Luke Skywalker | 0.6343308271593584 |
 
 ### Cross-type traversal: debut film
 
@@ -251,13 +219,9 @@ Traverse from Character to Film:
 nanograph run --db sw.nano --query search-test/queries.gq --name debut_film --param 'slug=anakin'
 ```
 
-```
-+----------------+--------------------+--------------+
-| slug           | title              | release_year |
-+----------------+--------------------+--------------+
-| phantom-menace | The Phantom Menace | 1999         |
-+----------------+--------------------+--------------+
-```
+| slug | title | release_year |
+|------|-------|--------------|
+| phantom-menace | The Phantom Menace | 1999 |
 
 ### Reverse traversal: same debut
 
@@ -267,16 +231,12 @@ Find all characters who debuted in a given film:
 nanograph run --db sw.nano --query search-test/queries.gq --name same_debut --param 'film=a-new-hope'
 ```
 
-```
-+---------+----------------+
-| slug    | name           |
-+---------+----------------+
-| han     | Han Solo       |
-| leia    | Leia Organa    |
-| luke    | Luke Skywalker |
+| slug | name |
+|------|------|
+| han | Han Solo |
+| leia | Leia Organa |
+| luke | Luke Skywalker |
 | obi-wan | Obi-Wan Kenobi |
-+---------+----------------+
-```
 
 ## Key takeaways
 
