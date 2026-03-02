@@ -8,7 +8,12 @@ slug: quick-start
 ## Install
 
 ```bash
-brew install protobuf
+brew install nanograph/tap/nanograph
+```
+
+Or build from source (requires Rust toolchain + `protoc`):
+
+```bash
 cargo install nanograph-cli
 ```
 
