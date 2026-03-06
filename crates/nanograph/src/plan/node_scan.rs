@@ -18,8 +18,8 @@ use tracing::debug;
 
 use crate::plan::literal_utils;
 use crate::query::ast::{CompOp, Literal};
-use crate::store::database::logical_node_field_to_lance;
 use crate::store::graph::GraphStorage;
+use crate::store::lance_io::logical_node_field_to_lance;
 
 #[derive(Debug, Clone)]
 pub(crate) struct NodeScanPredicate {

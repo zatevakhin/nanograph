@@ -20,8 +20,8 @@ use crate::embedding::EmbeddingClient;
 use crate::error::{NanoError, Result};
 use crate::ir::*;
 use crate::query::ast::{AggFunc, CompOp, Literal};
-use crate::store::database::logical_node_field_to_lance;
 use crate::store::graph::GraphStorage;
+use crate::store::lance_io::logical_node_field_to_lance;
 use crate::types::ScalarType;
 use tracing::{debug, info, instrument};
 

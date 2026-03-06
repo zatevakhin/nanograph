@@ -179,7 +179,7 @@ async fn init_db_with_data(schema: &str) -> (TempDir, std::path::PathBuf) {
     let db_path = dir.path().join("db");
 
     Database::init(&db_path, schema).await.expect("init db");
-    let mut db = Database::open(&db_path).await.expect("open db");
+    let db = Database::open(&db_path).await.expect("open db");
     db.load(sample_data()).await.expect("load data");
 
     (dir, db_path)
@@ -190,7 +190,7 @@ async fn init_db_with_custom_data(schema: &str, data: &str) -> (TempDir, std::pa
     let db_path = dir.path().join("db");
 
     Database::init(&db_path, schema).await.expect("init db");
-    let mut db = Database::open(&db_path).await.expect("open db");
+    let db = Database::open(&db_path).await.expect("open db");
     db.load(data).await.expect("load data");
 
     (dir, db_path)

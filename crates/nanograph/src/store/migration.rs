@@ -5,9 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use arrow_array::cast::AsArray;
 use arrow_array::types::UInt64Type;
-use arrow_array::{ArrayRef, RecordBatch, RecordBatchIterator, UInt64Array, new_null_array};
-use lance::Dataset;
-use lance::dataset::{WriteMode, WriteParams};
+use arrow_array::{ArrayRef, RecordBatch, UInt64Array, new_null_array};
 use serde::{Deserialize, Serialize};
 
 use crate::catalog::Catalog;
@@ -20,6 +18,7 @@ use crate::schema::parser::parse_schema;
 use crate::store::database::Database;
 use crate::store::graph::GraphStorage;
 use crate::store::indexing::{rebuild_node_scalar_indexes, rebuild_node_vector_indexes};
+use crate::store::lance_io::write_lance_batch;
 use crate::store::manifest::{DatasetEntry, GraphManifest, hash_string};
 use crate::store::txlog::commit_manifest_and_logs;
 use crate::types::ScalarType;
@@ -1589,20 +1588,6 @@ async fn write_staged_db(
 
     commit_manifest_and_logs(path, &manifest, &[], "schema_migration")?;
     Ok(())
-}
-
-async fn write_lance_batch(path: &Path, batch: RecordBatch) -> Result<u64> {
-    let schema = batch.schema();
-    let reader = RecordBatchIterator::new(vec![Ok(batch)], schema);
-    let uri = path.to_string_lossy().to_string();
-    let write_params = WriteParams {
-        mode: WriteMode::Overwrite,
-        ..Default::default()
-    };
-    let dataset = Dataset::write(reader, &uri, Some(write_params))
-        .await
-        .map_err(|e| NanoError::Lance(format!("write error: {}", e)))?;
-    Ok(dataset.version().version)
 }
 
 fn now_unix_seconds_string() -> String {

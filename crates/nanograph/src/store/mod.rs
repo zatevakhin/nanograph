@@ -1,4 +1,5 @@
 pub mod database;
+pub(crate) mod lance_io;
 pub mod manifest;
 pub mod migration;
 pub mod txlog;

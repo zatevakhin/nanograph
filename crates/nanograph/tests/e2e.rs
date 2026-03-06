@@ -448,7 +448,7 @@ async fn test_indexed_point_lookup_after_persist_and_reopen() {
     let dir = tempfile::TempDir::new().unwrap();
     let db_path = dir.path().join("db");
 
-    let mut db = Database::init(&db_path, indexed_test_schema())
+    let db = Database::init(&db_path, indexed_test_schema())
         .await
         .unwrap();
     db.load(indexed_test_data()).await.unwrap();
@@ -506,7 +506,7 @@ async fn test_nearest_query_on_indexed_vectors() {
     let dir = tempfile::TempDir::new().unwrap();
     let db_path = dir.path().join("db");
 
-    let mut db = Database::init(&db_path, vector_test_schema())
+    let db = Database::init(&db_path, vector_test_schema())
         .await
         .unwrap();
     db.load(vector_test_data()).await.unwrap();
@@ -566,7 +566,7 @@ async fn test_vector_projection_on_lance_scan_does_not_panic() {
     let dir = tempfile::TempDir::new().unwrap();
     let db_path = dir.path().join("db");
 
-    let mut db = Database::init(&db_path, vector_test_schema())
+    let db = Database::init(&db_path, vector_test_schema())
         .await
         .unwrap();
     db.load(vector_test_data()).await.unwrap();
@@ -619,7 +619,7 @@ async fn test_nearest_filter_prefilter_returns_filtered_result_with_small_limit(
     let dir = tempfile::TempDir::new().unwrap();
     let db_path = dir.path().join("db");
 
-    let mut db = Database::init(&db_path, vector_filtered_test_schema())
+    let db = Database::init(&db_path, vector_filtered_test_schema())
         .await
         .unwrap();
     db.load(vector_filtered_test_data()).await.unwrap();

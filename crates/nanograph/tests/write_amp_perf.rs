@@ -252,7 +252,7 @@ person_bytes_delta={} knows_bytes_delta={}",
 async fn setup_db(rows: usize) -> (TempDir, PathBuf, Database) {
     let dir = TempDir::new().expect("tempdir");
     let db_path = dir.path().join("db");
-    let mut db = Database::init(&db_path, schema_source())
+    let db = Database::init(&db_path, schema_source())
         .await
         .expect("init");
     db.load_with_mode(&build_data_source(rows), LoadMode::Overwrite)
@@ -262,7 +262,7 @@ async fn setup_db(rows: usize) -> (TempDir, PathBuf, Database) {
 }
 
 async fn run_append_scenario(rows: usize) -> ScenarioMetrics {
-    let (_dir, db_path, mut db) = setup_db(rows).await;
+    let (_dir, db_path, db) = setup_db(rows).await;
     let before_manifest = GraphManifest::read(&db_path).expect("read manifest");
     let before_person = snapshot_dataset(&db_path, &before_manifest, "node", "Person").await;
     let before_knows = snapshot_dataset(&db_path, &before_manifest, "edge", "Knows").await;
@@ -295,7 +295,7 @@ async fn run_append_scenario(rows: usize) -> ScenarioMetrics {
 }
 
 async fn run_update_scenario(rows: usize) -> ScenarioMetrics {
-    let (_dir, db_path, mut db) = setup_db(rows).await;
+    let (_dir, db_path, db) = setup_db(rows).await;
     let before_manifest = GraphManifest::read(&db_path).expect("read manifest");
     let before_person = snapshot_dataset(&db_path, &before_manifest, "node", "Person").await;
     let before_knows = snapshot_dataset(&db_path, &before_manifest, "edge", "Knows").await;
@@ -329,7 +329,7 @@ async fn run_update_scenario(rows: usize) -> ScenarioMetrics {
 }
 
 async fn run_delete_scenario(rows: usize) -> ScenarioMetrics {
-    let (_dir, db_path, mut db) = setup_db(rows).await;
+    let (_dir, db_path, db) = setup_db(rows).await;
     let before_manifest = GraphManifest::read(&db_path).expect("read manifest");
     let before_person = snapshot_dataset(&db_path, &before_manifest, "node", "Person").await;
     let before_knows = snapshot_dataset(&db_path, &before_manifest, "edge", "Knows").await;

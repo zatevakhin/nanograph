@@ -59,7 +59,7 @@ async fn average_query_latency(
     let dir = TempDir::new().expect("tempdir");
     let db_path = dir.path().join("db");
 
-    let mut db = Database::init(&db_path, schema_source(indexed))
+    let db = Database::init(&db_path, schema_source(indexed))
         .await
         .expect("init db");
     let data_source = build_data_source(rows);

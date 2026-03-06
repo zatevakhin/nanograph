@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -263,6 +263,32 @@ pub(crate) fn prune_logs_for_replay_window(
         .into_iter()
         .filter(|row| kept_tx_ids.contains(&row.tx_id))
         .collect();
+
+    let mut next_offset = 0u64;
+    let mut cdc_offsets_by_tx = HashMap::new();
+    for row in &kept_cdc {
+        let start_offset = next_offset;
+        let json = serde_json::to_vec(row)
+            .map_err(|e| NanoError::Manifest(format!("serialize CDC row: {}", e)))?;
+        next_offset = next_offset.saturating_add(json.len() as u64 + 1);
+        cdc_offsets_by_tx
+            .entry(row.tx_id.clone())
+            .and_modify(|(_, end_offset)| *end_offset = next_offset)
+            .or_insert((start_offset, next_offset));
+    }
+
+    for tx in &mut kept_tx {
+        match cdc_offsets_by_tx.get(&tx.tx_id) {
+            Some((start_offset, end_offset)) => {
+                tx.cdc_start_offset = Some(*start_offset);
+                tx.cdc_end_offset = Some(*end_offset);
+            }
+            None => {
+                tx.cdc_start_offset = None;
+                tx.cdc_end_offset = None;
+            }
+        }
+    }
 
     let tx_rows_kept = kept_tx.len();
     let cdc_rows_kept = kept_cdc.len();
@@ -892,9 +918,24 @@ mod tests {
         assert_eq!(tx_rows.len(), 2);
         assert_eq!(tx_rows[0].db_version, 2);
         assert_eq!(tx_rows[1].db_version, 3);
+        assert_eq!(tx_rows[0].cdc_start_offset, Some(0));
+        assert!(
+            tx_rows[0]
+                .cdc_end_offset
+                .is_some_and(|end| end > tx_rows[0].cdc_start_offset.unwrap())
+        );
+        assert_eq!(tx_rows[1].cdc_start_offset, tx_rows[0].cdc_end_offset);
+        assert!(
+            tx_rows[1]
+                .cdc_end_offset
+                .is_some_and(|end| end > tx_rows[1].cdc_start_offset.unwrap())
+        );
 
         let cdc_rows = read_cdc_log_entries(dir.path()).unwrap();
         assert_eq!(cdc_rows.len(), 2);
         assert!(cdc_rows.iter().all(|r| r.db_version >= 2));
+        let visible = read_visible_cdc_entries(dir.path(), 0, None).unwrap();
+        assert_eq!(visible.len(), 2);
+        assert!(visible.iter().all(|r| r.db_version >= 2));
     }
 }
