@@ -10,7 +10,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  macos-artifacts:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
@@ -79,8 +79,8 @@ jobs:
             target/swift-xcframework/NanoGraphFFI.xcframework.sha256
 
   release:
-    needs: build
-    runs-on: ubuntu-latest
+    needs: macos-artifacts
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
 
@@ -100,7 +100,7 @@ jobs:
 
   update-homebrew:
     needs: release
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     steps:
       - name: Dispatch formula update
         uses: peter-evans/repository-dispatch@v3

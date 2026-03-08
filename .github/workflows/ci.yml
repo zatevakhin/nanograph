@@ -13,21 +13,17 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  sdk-and-core:
-    runs-on: macos-14
+  core-rust:
+    name: Core Rust
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
 
       - name: Install protoc
         uses: arduino/setup-protoc@v3
         with:
-          version: '27.x'
+          version: "27.x"
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
 
       - name: Install Rust toolchain
         run: rustup toolchain install stable --profile minimal
@@ -39,17 +35,83 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ci-macos-${{ hashFiles('Cargo.lock') }}
-          restore-keys: ci-macos-
+          key: ci-core-linux-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ci-core-linux-
 
       - name: Cargo check
         run: cargo check --workspace --all-targets
 
-      - name: Core integration tests
-        run: cargo test -p nanograph --test engine_integration
+      - name: Core tests
+        run: cargo test -p nanograph --all-targets
+
+      - name: Workspace clippy
+        run: cargo clippy --workspace --all-targets
+
+  cli-e2e:
+    name: CLI E2E
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "27.x"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Rust toolchain
+        run: rustup toolchain install stable --profile minimal
+
+      - name: Cache cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ci-cli-linux-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ci-cli-linux-
 
       - name: CLI end-to-end tests
         run: cargo test -p nanograph-cli
+
+  ts-sdk:
+    name: TypeScript SDK
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "27.x"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Rust toolchain
+        run: rustup toolchain install stable --profile minimal
+
+      - name: Cache cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ci-ts-linux-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ci-ts-linux-cargo-
+
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+          key: ci-ts-linux-npm-${{ hashFiles('package-lock.json', 'crates/nanograph-ts/package.json') }}
+          restore-keys: ci-ts-linux-npm-
 
       - name: Install TypeScript SDK dependencies
         run: npm install
@@ -61,6 +123,31 @@ jobs:
 
       - name: TypeScript consumer smoke test
         run: bash tools/ts-sdk/smoke_test_consumer.sh
+
+  swift-sdk:
+    name: Swift SDK
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "27.x"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Rust toolchain
+        run: rustup toolchain install stable --profile minimal
+
+      - name: Cache cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ci-swift-macos-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ci-swift-macos-
 
       - name: Build Swift FFI library
         run: cargo build -p nanograph-ffi
