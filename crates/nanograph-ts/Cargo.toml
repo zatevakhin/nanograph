@@ -3,7 +3,7 @@ name = "nanograph-ts"
 version = "0.9.0"
 edition = "2024"
 description = "NanoGraph TypeScript/Node.js SDK via napi-rs"
-repository = "https://github.com/aaltshuler/nanograph"
+repository = "https://github.com/nanograph/nanograph"
 license = "MIT"
 
 [lib]

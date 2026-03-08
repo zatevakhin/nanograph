@@ -3,7 +3,7 @@ name = "nanograph-ffi"
 version = "0.9.0"
 edition = "2024"
 description = "NanoGraph C ABI for Swift and other native clients"
-repository = "https://github.com/aaltshuler/nanograph"
+repository = "https://github.com/nanograph/nanograph"
 license = "MIT"
 
 [lib]
