@@ -52,18 +52,6 @@ pub fn traversal_scale() -> (&'static str, usize, usize) {
     }
 }
 
-pub fn load_overwrite_rows() -> usize {
-    if smoke_mode() { 10_000 } else { 100_000 }
-}
-
-pub fn load_merge_rows() -> usize {
-    if smoke_mode() { 5_000 } else { 25_000 }
-}
-
-pub fn load_merge_embed_rows() -> usize {
-    if smoke_mode() { 1_000 } else { 5_000 }
-}
-
 pub fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
@@ -233,45 +221,5 @@ pub fn build_social_graph_data(nodes: usize, out_degree: usize) -> String {
             data.push('\n');
         }
     }
-    data
-}
-
-pub fn embed_chunk_schema() -> &'static str {
-    r#"
-node Chunk {
-    slug: String @key
-    chunkType: String
-    content: String
-    embedding: Vector(8) @embed(content)
-}
-"#
-}
-
-pub fn build_chunk_rows(start: usize, count: usize) -> String {
-    let mut data = String::with_capacity(count.saturating_mul(140));
-    for i in start..start + count {
-        data.push_str(&format!(
-            r#"{{"type":"Chunk","data":{{"slug":"chunk_{:06}","chunkType":"summary","content":"This is synthetic benchmark content block {:06} about graph workflows and customer history."}}}}"#,
-            i, i
-        ));
-        data.push('\n');
-    }
-    data
-}
-
-pub fn build_chunk_merge_payload(
-    update_count: usize,
-    insert_start: usize,
-    insert_count: usize,
-) -> String {
-    let mut data = String::with_capacity((update_count + insert_count).saturating_mul(160));
-    for i in 0..update_count {
-        data.push_str(&format!(
-            r#"{{"type":"Chunk","data":{{"slug":"chunk_{:06}","chunkType":"summary","content":"Updated synthetic benchmark content block {:06} for merge-path embedding validation."}}}}"#,
-            i, i
-        ));
-        data.push('\n');
-    }
-    data.push_str(&build_chunk_rows(insert_start, insert_count));
     data
 }

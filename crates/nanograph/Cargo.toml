@@ -1,6 +1,6 @@
 [package]
 name = "nanograph"
-version = "0.11.0"
+version = "1.0.0"
 edition = "2024"
 description = "Embedded typed property graph database. Schema-as-code, compile-time validated, Arrow-native."
 repository = "https://github.com/nanograph/nanograph"
@@ -50,17 +50,9 @@ name = "traversal"
 harness = false
 
 [[bench]]
-name = "load"
-harness = false
-
-[[bench]]
 name = "search"
 harness = false
 
 [[bench]]
 name = "result_transport"
-harness = false
-
-[[bench]]
-name = "migration"
 harness = false

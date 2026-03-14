@@ -19,8 +19,7 @@
 | Document | Description |
 |----------|-------------|
 | [embeddable-api.md](dev/embeddable-api.md) | Current embeddable API, streaming ingest, and SDK status |
-| [benchmarking.md](dev/benchmarking.md) | Criterion benchmark suite and how to run it |
-| [benchmark-host.md](dev/benchmark-host.md) | Recommended AWS benchmark host spec and provisioning checklist |
+| [benchmarks.md](dev/benchmarks.md) | Lightweight local regression benchmarks kept in the main repo |
 | [backlog.md](dev/backlog.md) | High-level shipped milestones and deferred follow-up |
 | [typescript-sdk.md](dev/typescript-sdk.md) | TypeScript SDK notes and current surface |
 | [swift-sdk.md](dev/swift-sdk.md) | Swift SDK notes and current surface |

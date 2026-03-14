@@ -5,6 +5,7 @@
 *.lance
 .DS_Store
 docs/internal/
+docs/bench/
 docs/backlog/
 docs/archive/
 docs/dev/backlog.md
