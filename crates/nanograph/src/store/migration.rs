@@ -334,11 +334,12 @@ fn journal_state_name(state: JournalState) -> &'static str {
 
 pub async fn execute_schema_migration(
     db_path: &Path,
+    desired_schema_path: Option<&Path>,
     dry_run: bool,
     auto_approve: bool,
 ) -> Result<MigrationExecution> {
     reconcile_migration_sidecars(db_path)?;
-    let planned = plan_schema_migration(db_path).await?;
+    let planned = plan_schema_migration(db_path, desired_schema_path).await?;
 
     if planned.plan.has_blocked() {
         return Ok(MigrationExecution {
@@ -368,8 +369,13 @@ pub async fn execute_schema_migration(
     })
 }
 
-async fn plan_schema_migration(db_path: &Path) -> Result<PlannedMigration> {
-    let schema_path = db_path.join(SCHEMA_PG_FILENAME);
+async fn plan_schema_migration(
+    db_path: &Path,
+    desired_schema_path: Option<&Path>,
+) -> Result<PlannedMigration> {
+    let schema_path = desired_schema_path
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| db_path.join(SCHEMA_PG_FILENAME));
     let schema_source = std::fs::read_to_string(&schema_path).map_err(|e| {
         NanoError::Io(std::io::Error::new(
             e.kind(),

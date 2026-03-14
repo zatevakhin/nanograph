@@ -69,7 +69,11 @@ fn starwars_schema_diff_and_migrate_work_from_example() {
     assert!(diff.contains("AddProperty"));
     assert!(diff.contains("DropProperty"));
 
-    workspace.write_file("starwars.nano/schema.pg", &migrated_schema);
+    let updated_config = workspace.read_file("nanograph.toml").replace(
+        "default_path = \"starwars.pg\"",
+        "default_path = \"migrated.pg\"",
+    );
+    workspace.write_file("nanograph.toml", &updated_config);
 
     let migrate = workspace.run_ok(&["migrate", "--auto-approve", "--format", "table"]);
     assert!(migrate.stdout.contains("RenameType") || migrate.stdout.contains("Applied"));

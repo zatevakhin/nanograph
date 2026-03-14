@@ -210,6 +210,7 @@ json = false
 
 `output_format` is used when a command supports multiple formats and no explicit `--format` is passed.
 For `nanograph run`, supported formats are `table`, `kv`, `csv`, `jsonl`, and `json`.
+Commands with narrower format support, such as `export`, `changes`, `schema-diff`, and `migrate`, fall back to their own default when `output_format` is unsupported instead of erroring.
 `json = true` acts like a shared default for the global `--json` flag on commands that support machine-readable JSON output.
 `--quiet` is always a runtime flag; it is not stored in project config.
 

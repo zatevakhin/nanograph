@@ -288,3 +288,34 @@ query delete_task() {
     assert!(export.contains("\"slug\":\"sig-test-renewal\""));
     assert!(!export.contains("\"slug\":\"ai-draft-proposal\""));
 }
+
+#[test]
+fn check_warns_about_zero_param_mutations() {
+    let workspace = ExampleWorkspace::copy(ExampleProject::Starwars);
+    workspace.init();
+    workspace.load();
+
+    workspace.write_file(
+        "hardcoded_mutation.gq",
+        r#"query add_training_parent() {
+    insert HasParent { from: "luke-skywalker", to: "anakin-skywalker" }
+}
+"#,
+    );
+
+    let check = workspace.json_value(&["--json", "check", "--query", "hardcoded_mutation.gq"]);
+    assert_eq!(check["status"], "ok");
+    let results = check["results"].as_array().unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0]["kind"], "mutation");
+    assert_eq!(
+        results[0]["warnings"][0],
+        "mutation declares no params; hardcoded mutations are easy to miss"
+    );
+
+    let human = workspace
+        .run_ok(&["check", "--query", "hardcoded_mutation.gq"])
+        .stdout;
+    assert!(human.contains("query `add_training_parent` (mutation)"));
+    assert!(human.contains("hardcoded mutations are easy to miss"));
+}

@@ -345,7 +345,7 @@ async fn migration_dry_run_reports_rename_steps() {
     let (_dir, db_path) = init_db_with_data(base_schema()).await;
     write_schema(&db_path, rename_schema());
 
-    let exec = execute_schema_migration(&db_path, true, false)
+    let exec = execute_schema_migration(&db_path, None, true, false)
         .await
         .expect("dry run");
 
@@ -384,7 +384,7 @@ async fn migration_apply_rename_preserves_data() {
     let (_dir, db_path) = init_db_with_data(base_schema()).await;
     write_schema(&db_path, rename_schema());
 
-    let exec = execute_schema_migration(&db_path, false, false)
+    let exec = execute_schema_migration(&db_path, None, false, false)
         .await
         .expect("apply migration");
     assert_eq!(exec.status, MigrationStatus::Applied);
@@ -424,7 +424,7 @@ async fn migration_apply_add_property_preserves_edge_property_order() {
         init_db_with_custom_data(edge_order_bug_base_schema(), edge_order_bug_data()).await;
     write_schema(&db_path, edge_order_bug_target_schema());
 
-    let exec = execute_schema_migration(&db_path, false, true)
+    let exec = execute_schema_migration(&db_path, None, false, true)
         .await
         .expect("apply migration");
     assert_eq!(exec.status, MigrationStatus::Applied);
@@ -458,7 +458,7 @@ async fn migration_blocks_non_nullable_property_without_backfill() {
     let (_dir, db_path) = init_db_with_data(base_schema()).await;
     write_schema(&db_path, schema_with_new_non_nullable_prop());
 
-    let exec = execute_schema_migration(&db_path, true, false)
+    let exec = execute_schema_migration(&db_path, None, true, false)
         .await
         .expect("dry run");
 
@@ -488,7 +488,7 @@ async fn migration_requires_confirmation_for_drop_property() {
     let (_dir, db_path) = init_db_with_data(base_schema()).await;
     write_schema(&db_path, schema_with_drop_prop());
 
-    let exec = execute_schema_migration(&db_path, false, false)
+    let exec = execute_schema_migration(&db_path, None, false, false)
         .await
         .expect("plan migration");
     assert_eq!(exec.status, MigrationStatus::NeedsConfirmation);
@@ -506,7 +506,7 @@ async fn migration_requires_confirmation_for_drop_property() {
         "expected DropProperty step for User.age"
     );
 
-    let applied = execute_schema_migration(&db_path, false, true)
+    let applied = execute_schema_migration(&db_path, None, false, true)
         .await
         .expect("apply with auto-approve");
     assert_eq!(applied.status, MigrationStatus::Applied);
@@ -525,7 +525,7 @@ async fn migration_blocks_invalid_type_cast() {
     let (_dir, db_path) = init_db_with_data(base_schema()).await;
     write_schema(&db_path, schema_with_name_as_i32());
 
-    let exec = execute_schema_migration(&db_path, true, false)
+    let exec = execute_schema_migration(&db_path, None, true, false)
         .await
         .expect("dry run");
 
@@ -551,7 +551,7 @@ async fn migration_blocks_nullable_to_non_nullable_when_nulls_exist() {
     let (_dir, db_path) = init_db_with_data(base_schema()).await;
     write_schema(&db_path, schema_with_age_non_nullable());
 
-    let exec = execute_schema_migration(&db_path, true, false)
+    let exec = execute_schema_migration(&db_path, None, true, false)
         .await
         .expect("dry run");
 
@@ -584,7 +584,7 @@ async fn migration_blocks_edge_endpoint_rebind_with_invalid_rows() {
     let (_dir, db_path) = init_db_with_custom_data(rebind_base_schema(), rebind_data()).await;
     write_schema(&db_path, rebind_target_schema());
 
-    let exec = execute_schema_migration(&db_path, true, false)
+    let exec = execute_schema_migration(&db_path, None, true, false)
         .await
         .expect("dry run");
 
@@ -612,7 +612,7 @@ async fn migration_requires_confirmation_for_drop_node_and_edge_type() {
     let (_dir, db_path) = init_db_with_custom_data(drop_type_base_schema(), drop_type_data()).await;
     write_schema(&db_path, drop_type_target_schema());
 
-    let exec = execute_schema_migration(&db_path, false, false)
+    let exec = execute_schema_migration(&db_path, None, false, false)
         .await
         .expect("plan migration");
 
@@ -642,13 +642,13 @@ async fn migration_sequential_runs_increment_schema_identity_version() {
     let (_dir, db_path) = init_db_with_data(base_schema()).await;
 
     write_schema(&db_path, rename_schema());
-    let first = execute_schema_migration(&db_path, false, true)
+    let first = execute_schema_migration(&db_path, None, false, true)
         .await
         .expect("first migration");
     assert_eq!(first.status, MigrationStatus::Applied);
 
     write_schema(&db_path, account_with_nullable_prop_schema());
-    let second = execute_schema_migration(&db_path, false, true)
+    let second = execute_schema_migration(&db_path, None, false, true)
         .await
         .expect("second migration");
     assert_eq!(second.status, MigrationStatus::Applied);
@@ -662,7 +662,7 @@ async fn migration_appends_tx_catalog_row() {
     let (_dir, db_path) = init_db_with_data(base_schema()).await;
     write_schema(&db_path, rename_schema());
 
-    let exec = execute_schema_migration(&db_path, false, true)
+    let exec = execute_schema_migration(&db_path, None, false, true)
         .await
         .expect("apply migration");
     assert_eq!(exec.status, MigrationStatus::Applied);
@@ -681,7 +681,7 @@ async fn migration_preserves_index_annotations_in_schema_ir() {
     let (_dir, db_path) = init_db_with_data(base_schema()).await;
     write_schema(&db_path, schema_with_index_annotation());
 
-    let exec = execute_schema_migration(&db_path, false, false)
+    let exec = execute_schema_migration(&db_path, None, false, false)
         .await
         .expect("apply migration");
     assert_eq!(exec.status, MigrationStatus::Applied);
@@ -705,7 +705,7 @@ async fn migration_auto_indexes_key_properties_in_schema_ir() {
     let (_dir, db_path) = init_db_with_data(base_schema()).await;
     write_schema(&db_path, schema_with_key_auto_index());
 
-    let exec = execute_schema_migration(&db_path, false, false)
+    let exec = execute_schema_migration(&db_path, None, false, false)
         .await
         .expect("apply migration");
     assert_eq!(exec.status, MigrationStatus::Applied);
@@ -727,7 +727,7 @@ async fn migration_builds_scalar_indexes_for_indexed_properties() {
     let (_dir, db_path) = init_db_with_data(base_schema()).await;
     write_schema(&db_path, schema_with_index_annotation());
 
-    let exec = execute_schema_migration(&db_path, false, false)
+    let exec = execute_schema_migration(&db_path, None, false, false)
         .await
         .expect("apply migration");
     assert_eq!(exec.status, MigrationStatus::Applied);
@@ -796,7 +796,7 @@ edge Knows: User -> User
 "#,
     );
 
-    let exec = execute_schema_migration(&db_path, true, false)
+    let exec = execute_schema_migration(&db_path, None, true, false)
         .await
         .expect("dry run");
     assert_eq!(exec.status, MigrationStatus::Applied);
@@ -904,7 +904,7 @@ async fn migration_refuses_orphan_backup_sidecar() {
     let (_journal_path, backup_path, _staging_path) = sidecar_paths(&db_path);
     fs::create_dir_all(&backup_path).expect("create backup dir");
 
-    let err = execute_schema_migration(&db_path, true, false)
+    let err = execute_schema_migration(&db_path, None, true, false)
         .await
         .expect_err("migration should fail");
     assert!(

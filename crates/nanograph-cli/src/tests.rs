@@ -268,6 +268,7 @@ fn parse_load_mode_from_cli() {
     let cli = Cli::parse_from([
         "nanograph",
         "load",
+        "--db",
         "/tmp/db",
         "--data",
         "/tmp/data.jsonl",
@@ -275,7 +276,10 @@ fn parse_load_mode_from_cli() {
         "append",
     ]);
     match cli.command {
-        Commands::Load { mode, .. } => assert_eq!(mode, LoadModeArg::Append),
+        Commands::Load { db, mode, .. } => {
+            assert_eq!(db, Some(PathBuf::from("/tmp/db")));
+            assert_eq!(mode, LoadModeArg::Append);
+        }
         _ => panic!("expected load command"),
     }
 }
@@ -285,6 +289,7 @@ fn parse_changes_range_from_cli() {
     let cli = Cli::parse_from([
         "nanograph",
         "changes",
+        "--db",
         "/tmp/db",
         "--from",
         "2",
@@ -295,11 +300,13 @@ fn parse_changes_range_from_cli() {
     ]);
     match cli.command {
         Commands::Changes {
+            db,
             from_version,
             to_version,
             format,
             ..
         } => {
+            assert_eq!(db, Some(PathBuf::from("/tmp/db")));
             assert_eq!(from_version, Some(2));
             assert_eq!(to_version, Some(4));
             assert_eq!(format.as_deref(), Some("json"));
@@ -313,21 +320,27 @@ fn parse_maintenance_commands_from_cli() {
     let compact = Cli::parse_from([
         "nanograph",
         "compact",
+        "--db",
         "/tmp/db",
         "--target-rows-per-fragment",
         "1000",
     ]);
     match compact.command {
         Commands::Compact {
+            db,
             target_rows_per_fragment,
             ..
-        } => assert_eq!(target_rows_per_fragment, 1000),
+        } => {
+            assert_eq!(db, Some(PathBuf::from("/tmp/db")));
+            assert_eq!(target_rows_per_fragment, 1000);
+        }
         _ => panic!("expected compact command"),
     }
 
     let cleanup = Cli::parse_from([
         "nanograph",
         "cleanup",
+        "--db",
         "/tmp/db",
         "--retain-tx-versions",
         "4",
@@ -336,25 +349,28 @@ fn parse_maintenance_commands_from_cli() {
     ]);
     match cleanup.command {
         Commands::Cleanup {
+            db,
             retain_tx_versions,
             retain_dataset_versions,
             ..
         } => {
+            assert_eq!(db, Some(PathBuf::from("/tmp/db")));
             assert_eq!(retain_tx_versions, 4);
             assert_eq!(retain_dataset_versions, 3);
         }
         _ => panic!("expected cleanup command"),
     }
 
-    let doctor = Cli::parse_from(["nanograph", "doctor", "/tmp/db"]);
+    let doctor = Cli::parse_from(["nanograph", "doctor", "--db", "/tmp/db"]);
     match doctor.command {
-        Commands::Doctor { .. } => {}
+        Commands::Doctor { db, .. } => assert_eq!(db, Some(PathBuf::from("/tmp/db"))),
         _ => panic!("expected doctor command"),
     }
 
     let materialize = Cli::parse_from([
         "nanograph",
         "cdc-materialize",
+        "--db",
         "/tmp/db",
         "--min-new-rows",
         "50",
@@ -362,10 +378,12 @@ fn parse_maintenance_commands_from_cli() {
     ]);
     match materialize.command {
         Commands::CdcMaterialize {
+            db,
             min_new_rows,
             force,
             ..
         } => {
+            assert_eq!(db, Some(PathBuf::from("/tmp/db")));
             assert_eq!(min_new_rows, 50);
             assert!(force);
         }
@@ -413,11 +431,17 @@ fn parse_metadata_commands_from_cli() {
         "/tmp/db",
         "--format",
         "jsonl",
+        "--no-embeddings",
     ]);
     match export.command {
-        Commands::Export { db, format } => {
+        Commands::Export {
+            db,
+            format,
+            no_embeddings,
+        } => {
             assert_eq!(db, Some(PathBuf::from("/tmp/db")));
             assert_eq!(format.as_deref(), Some("jsonl"));
+            assert!(no_embeddings);
         }
         _ => panic!("expected export command"),
     }
@@ -1187,7 +1211,7 @@ edge Knows: Person -> Person"#,
         .expect("embedding property present in describe payload");
     assert_eq!(embedding_prop["embed_source"].as_str(), Some("summary"));
 
-    let rows = build_export_rows(&db, false).unwrap();
+    let rows = build_export_rows(&db, false, true).unwrap();
     assert_eq!(rows.len(), 3);
     assert!(
         rows.iter()
@@ -1291,7 +1315,7 @@ edge MadeBy: ActionItem -> Person"#,
         .unwrap();
 
     let db = Database::open(&db_path).await.unwrap();
-    let rows = build_export_rows(&db, false).unwrap();
+    let rows = build_export_rows(&db, false, true).unwrap();
     let edge = rows
         .iter()
         .find(|row| row["edge"] == "MadeBy")
@@ -1323,7 +1347,7 @@ edge MadeBy: ActionItem -> Person"#,
     .unwrap();
 
     let roundtrip_db = Database::open(&roundtrip_db_path).await.unwrap();
-    let roundtrip_rows = build_export_rows(&roundtrip_db, false).unwrap();
+    let roundtrip_rows = build_export_rows(&roundtrip_db, false, true).unwrap();
     let roundtrip_edge = roundtrip_rows
         .iter()
         .find(|row| row["edge"] == "MadeBy")
@@ -1367,7 +1391,7 @@ edge Follows: User -> User"#,
         .unwrap();
 
     let db = Database::open(&db_path).await.unwrap();
-    let rows = build_export_rows(&db, false).unwrap();
+    let rows = build_export_rows(&db, false, true).unwrap();
     assert!(
         rows.iter()
             .any(|row| row["type"] == "User" && row["data"]["id"] == "usr_01")
@@ -1401,7 +1425,7 @@ edge Follows: User -> User"#,
     .unwrap();
 
     let roundtrip_db = Database::open(&roundtrip_db_path).await.unwrap();
-    let roundtrip_rows = build_export_rows(&roundtrip_db, false).unwrap();
+    let roundtrip_rows = build_export_rows(&roundtrip_db, false, true).unwrap();
     assert!(
         roundtrip_rows
             .iter()

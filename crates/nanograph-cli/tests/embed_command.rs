@@ -102,7 +102,13 @@ fn init_embed_db(workspace: &ExampleWorkspace) {
     ]);
     assert_eq!(load["status"], "ok");
     workspace.write_file("embed.nano/schema.pg", embed_schema());
-    let migrate = workspace.run_ok(&["migrate", "embed.nano", "--auto-approve"]);
+    let migrate = workspace.run_ok(&[
+        "migrate",
+        "embed.nano",
+        "--schema",
+        "embed.nano/schema.pg",
+        "--auto-approve",
+    ]);
     assert!(migrate.stdout.contains("No migration steps."));
 }
 
@@ -134,7 +140,13 @@ fn init_reindex_db(workspace: &ExampleWorkspace) {
     ]);
     assert_eq!(load["status"], "ok");
     workspace.write_file("embed.nano/schema.pg", embed_indexed_schema());
-    let migrate = workspace.run_ok(&["migrate", "embed.nano", "--auto-approve"]);
+    let migrate = workspace.run_ok(&[
+        "migrate",
+        "embed.nano",
+        "--schema",
+        "embed.nano/schema.pg",
+        "--auto-approve",
+    ]);
     assert!(migrate.stdout.contains("No migration steps."));
 }
 

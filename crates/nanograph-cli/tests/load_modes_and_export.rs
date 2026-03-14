@@ -106,6 +106,35 @@ fn revops_load_modes_and_standalone_delete_work() {
 }
 
 #[test]
+fn load_accepts_db_flag_end_to_end() {
+    let workspace = ExampleWorkspace::copy(ExampleProject::Starwars);
+    workspace.init();
+
+    let load = workspace.json_value(&[
+        "--json",
+        "load",
+        "--db",
+        "starwars.nano",
+        "--data",
+        "starwars.jsonl",
+        "--mode",
+        "overwrite",
+    ]);
+    assert_eq!(load["status"], "ok");
+
+    let changes = workspace.run_ok(&[
+        "changes",
+        "--db",
+        "starwars.nano",
+        "--since",
+        "0",
+        "--format",
+        "jsonl",
+    ]);
+    assert!(changes.stdout.contains("\"db_version\""));
+}
+
+#[test]
 fn export_json_keeps_debug_internal_fields() {
     let workspace = ExampleWorkspace::copy(ExampleProject::Starwars);
     workspace.init();

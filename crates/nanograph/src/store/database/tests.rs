@@ -1629,7 +1629,9 @@ async fn test_migration_rebuilds_scalar_indexes_for_indexed_properties() {
 "#,
     )
     .unwrap();
-    let result = execute_schema_migration(path, false, true).await.unwrap();
+    let result = execute_schema_migration(path, None, false, true)
+        .await
+        .unwrap();
     assert_eq!(result.status, MigrationStatus::Applied);
 
     let db = Database::open(path).await.unwrap();
@@ -1669,7 +1671,9 @@ async fn test_migration_rebuilds_vector_indexes_for_indexed_vector_properties() 
     drop(db);
 
     std::fs::write(path.join("schema.pg"), vector_indexed_schema_v2_src()).unwrap();
-    let result = execute_schema_migration(path, false, true).await.unwrap();
+    let result = execute_schema_migration(path, None, false, true)
+        .await
+        .unwrap();
     assert_eq!(result.status, MigrationStatus::Applied);
 
     let db = Database::open(path).await.unwrap();

@@ -12,18 +12,22 @@ use nanograph::store::migration::{
 #[instrument(skip(format), fields(db_path = %db_path.display(), dry_run = dry_run, format = format))]
 pub(crate) async fn cmd_migrate(
     db_path: &Path,
+    desired_schema_path: Option<&Path>,
     dry_run: bool,
     format: &str,
     auto_approve: bool,
     json: bool,
     quiet: bool,
 ) -> Result<()> {
-    let schema_path = db_path.join("schema.pg");
+    let schema_path = desired_schema_path
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| db_path.join("schema.pg"));
     let schema_src = std::fs::read_to_string(&schema_path)
         .wrap_err_with(|| format!("failed to read schema: {}", schema_path.display()))?;
     let _ = crate::parse_schema_or_report(&schema_path, &schema_src)?;
 
-    let execution = execute_schema_migration(db_path, dry_run, auto_approve).await?;
+    let execution =
+        execute_schema_migration(db_path, desired_schema_path, dry_run, auto_approve).await?;
     let effective_format = if json { "json" } else { format };
     if !(quiet && effective_format == "table") {
         render_migration_execution(&execution, effective_format)?;

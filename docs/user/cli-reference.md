@@ -60,34 +60,35 @@ This command classifies changes as `additive`, `compatible_with_confirmation`, `
 Export the full graph (nodes first, then edges) to stdout.
 
 ```bash
-nanograph export [--db <db_path>] [--format jsonl|json]
+nanograph export [--db <db_path>] [--format jsonl|json] [--no-embeddings]
 ```
 
 If `db.default_path` is set in `nanograph.toml`, `--db` can be omitted.
 
 - `jsonl` is the portable seed format: nodes plus edges with `from` / `to` resolved through schema `@key` values
 - `json` keeps more debug-oriented internal detail for inspection
+- `--no-embeddings` omits vector embedding properties from exported payloads
 
 ### `init`
 
 Create a new database from a schema file.
 
 ```bash
-nanograph init [db_path] --schema <schema.pg>
+nanograph init [--db <db_path>] [--schema <schema.pg>]
 ```
 
 Creates the `<db_path>/` directory with `schema.pg`, `schema.ir.json`, and an empty manifest.
 
 When missing, `init` also scaffolds `nanograph.toml` and `.env.nano` in the inferred project directory shared by the DB path and schema path. `nanograph.toml` is for shared defaults; `.env.nano` is for local secrets like `OPENAI_API_KEY`.
 
-If `db.default_path` and/or `schema.default_path` are set in `nanograph.toml`, `db_path` and/or `--schema` can be omitted.
+If `db.default_path` and/or `schema.default_path` are set in `nanograph.toml`, `--db` and/or `--schema` can be omitted.
 
 ### `load`
 
 Load JSONL data into an existing database.
 
 ```bash
-nanograph load [<db_path>] --data <data.jsonl> --mode <overwrite|append|merge>
+nanograph load [--db <db_path>] --data <data.jsonl> --mode <overwrite|append|merge>
 ```
 
 | Mode | Behavior |
@@ -97,7 +98,7 @@ nanograph load [<db_path>] --data <data.jsonl> --mode <overwrite|append|merge>
 | `merge` | Upsert by `@key` — update existing rows, insert new ones |
 
 `merge` requires at least one node type in the schema to have a `@key` property.
-If `db.default_path` is set in `nanograph.toml`, `db_path` can be omitted.
+If `db.default_path` is set in `nanograph.toml`, `--db` can be omitted.
 
 ### `embed`
 
@@ -139,6 +140,7 @@ nanograph check [--db <db_path>] --query <queries.gq> [--schema <schema.pg>]
 If the provided query path is relative and not found directly, `nanograph` also searches the configured `query.roots` from `nanograph.toml`.
 If `db.default_path` is set in `nanograph.toml`, `--db` can be omitted.
 If `schema.default_path` is set in `nanograph.toml`, `check` also uses it for stale-schema diagnostics. When a query references a type or property that is missing from the current DB schema, `--schema` helps `check` tell you whether the desired schema differs and whether you likely need `nanograph migrate`.
+Successful checks warn when a mutation declares zero params, because hardcoded mutations are easy to miss during review and automation.
 
 ### `run`
 
@@ -213,23 +215,24 @@ See [Project Config](config.md) for the full alias model.
 Delete nodes by predicate with automatic edge cascade.
 
 ```bash
-nanograph delete [<db_path>] --type <NodeType> --where <predicate>
+nanograph delete [--db <db_path>] --type <NodeType> --where <predicate>
 ```
 
 Predicate format: `property=value` or `property>=value`, etc.
 
 All edges where the deleted node is a source or destination are automatically removed.
-If `db.default_path` is set in `nanograph.toml`, `db_path` can be omitted.
+If `db.default_path` is set in `nanograph.toml`, `--db` can be omitted.
 
 ### `changes`
 
 Read commit-gated CDC rows from the authoritative JSONL log.
 
 ```bash
-nanograph changes [<db_path>] [--since <db_version> | --from <db_version> --to <db_version>] [--format jsonl|json]
+nanograph changes [--db <db_path>] [--since <db_version> | --from <db_version> --to <db_version>] [--format jsonl|json] [--no-embeddings]
 ```
 
-If `db.default_path` is set in `nanograph.toml`, `db_path` can be omitted.
+If `db.default_path` is set in `nanograph.toml`, `--db` can be omitted.
+`--no-embeddings` strips vector embedding properties from CDC payloads to keep output compact.
 
 ## CDC semantics (time machine)
 
@@ -248,20 +251,20 @@ If `db.default_path` is set in `nanograph.toml`, `db_path` can be omitted.
 Compact manifest-tracked Lance datasets and commit updated pinned versions.
 
 ```bash
-nanograph compact [<db_path>] [--target-rows-per-fragment <n>] [--materialize-deletions <bool>] [--materialize-deletions-threshold <f32>]
+nanograph compact [--db <db_path>] [--target-rows-per-fragment <n>] [--materialize-deletions <bool>] [--materialize-deletions-threshold <f32>]
 ```
 
-If `db.default_path` is set in `nanograph.toml`, `db_path` can be omitted.
+If `db.default_path` is set in `nanograph.toml`, `--db` can be omitted.
 
 ### `cleanup`
 
 Prune tx/CDC history and old Lance dataset versions while preserving replay/manifest correctness.
 
 ```bash
-nanograph cleanup [<db_path>] [--retain-tx-versions <n>] [--retain-dataset-versions <n>]
+nanograph cleanup [--db <db_path>] [--retain-tx-versions <n>] [--retain-dataset-versions <n>]
 ```
 
-If `db.default_path` is set in `nanograph.toml`, `db_path` can be omitted.
+If `db.default_path` is set in `nanograph.toml`, `--db` can be omitted.
 
 ### `doctor`
 
@@ -269,11 +272,11 @@ Validate manifest/dataset/log consistency and graph integrity.
 Also reports the Lance storage format used by each tracked dataset.
 
 ```bash
-nanograph doctor [<db_path>] [--schema <schema.pg>] [--verbose]
+nanograph doctor [--db <db_path>] [--schema <schema.pg>] [--verbose]
 ```
 
 Returns non-zero when issues are detected.
-If `db.default_path` is set in `nanograph.toml`, `db_path` can be omitted.
+If `db.default_path` is set in `nanograph.toml`, `--db` can be omitted.
 With `--schema`, `doctor` also compares the current DB schema against the desired schema file and reports drift as part of the health check. This is useful when queries have been updated ahead of the database schema.
 Use `--verbose` to show per-dataset Lance storage formats in human output. JSON output always includes `dataset_storage_formats`.
 
@@ -283,23 +286,24 @@ Materialize visible CDC rows into derived Lance dataset `__cdc_analytics` for an
 This does not change `changes` semantics; JSONL remains authoritative.
 
 ```bash
-nanograph cdc-materialize [<db_path>] [--min-new-rows <n>] [--force]
+nanograph cdc-materialize [--db <db_path>] [--min-new-rows <n>] [--force]
 ```
 
-If `db.default_path` is set in `nanograph.toml`, `db_path` can be omitted.
+If `db.default_path` is set in `nanograph.toml`, `--db` can be omitted.
 
 ### `migrate`
 
 Apply schema changes to an existing database.
 
 ```bash
-nanograph migrate [<db_path>] [options]
+nanograph migrate [--db <db_path>] [--schema <schema.pg>] [options]
 ```
 
-Edit the database's `schema.pg` first, then run migrate. The command diffs the old and new schema IR and generates a migration plan.
+By default, `migrate` reads the desired schema from `schema.default_path` in `nanograph.toml` when set, otherwise from `<db_path>/schema.pg`. The command diffs the current DB schema IR against that desired schema and generates a migration plan.
 
 | Option | Description |
 |--------|-------------|
+| `--schema <path>` | Override the desired schema file |
 | `--dry-run` | Show plan without applying |
 | `--auto-approve` | Apply `confirm`-level steps without prompting |
 | `--format table\|json` | Output format (default: `table`) |
@@ -313,7 +317,7 @@ Migration steps have safety levels:
 | `blocked` | Cannot be auto-applied (add non-nullable property to populated type) |
 
 Use `@rename_from("old_name")` in the schema to track type/property renames.
-If `db.default_path` is set in `nanograph.toml`, `db_path` can be omitted.
+If `db.default_path` is set in `nanograph.toml`, `--db` can be omitted.
 
 ## Data format
 

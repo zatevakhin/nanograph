@@ -305,12 +305,24 @@ fn additive_migration_with_edge_date_properties_succeeds_end_to_end() {
     workspace.write_file("bug.nano/schema.pg", bug_schema_with_display_name());
 
     let plan = workspace
-        .run_ok(&["migrate", "bug.nano", "--dry-run"])
+        .run_ok(&[
+            "migrate",
+            "bug.nano",
+            "--schema",
+            "bug.nano/schema.pg",
+            "--dry-run",
+        ])
         .stdout;
     assert!(plan.contains("AddProperty"));
 
     let apply = workspace
-        .run_ok(&["migrate", "bug.nano", "--auto-approve"])
+        .run_ok(&[
+            "migrate",
+            "bug.nano",
+            "--schema",
+            "bug.nano/schema.pg",
+            "--auto-approve",
+        ])
         .stdout;
     assert!(apply.contains("AddProperty") || apply.contains("Applied"));
 

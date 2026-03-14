@@ -1,6 +1,6 @@
 mod common;
 
-use common::{ExampleProject, ExampleWorkspace, parse_json_value};
+use common::{ExampleProject, ExampleWorkspace, parse_json_value, parse_jsonl_rows};
 use serde_json::Value;
 
 fn override_cli_layout(workspace: &ExampleWorkspace, width: usize, layout: &str) {
@@ -46,6 +46,38 @@ fn override_cli_layout(workspace: &ExampleWorkspace, width: usize, layout: &str)
         if !saw_layout {
             updated.push(format!("table_cell_layout = \"{}\"", layout));
         }
+    }
+
+    let updated = updated.join("\n") + "\n";
+    workspace.write_file("nanograph.toml", &updated);
+}
+
+fn override_output_format(workspace: &ExampleWorkspace, format: &str) {
+    let mut updated = Vec::new();
+    let mut in_cli = false;
+    let mut saw_output_format = false;
+
+    for line in workspace.read_file("nanograph.toml").lines() {
+        if line.starts_with('[') {
+            if in_cli && !saw_output_format {
+                updated.push(format!("output_format = \"{}\"", format));
+            }
+            in_cli = line.trim() == "[cli]";
+            updated.push(line.to_string());
+            continue;
+        }
+
+        if in_cli && line.starts_with("output_format") {
+            updated.push(format!("output_format = \"{}\"", format));
+            saw_output_format = true;
+            continue;
+        }
+
+        updated.push(line.to_string());
+    }
+
+    if in_cli && !saw_output_format {
+        updated.push(format!("output_format = \"{}\"", format));
     }
 
     let updated = updated.join("\n") + "\n";
@@ -200,6 +232,51 @@ fn csv_run_output_escapes_fields_and_stays_row_only() {
     assert!(!output.contains("Query:"));
     assert!(!output.contains("Description:"));
     assert!(!output.contains("Instruction:"));
+}
+
+#[test]
+fn export_and_changes_fall_back_when_global_output_format_is_unsupported() {
+    let workspace = ExampleWorkspace::copy(ExampleProject::Starwars);
+    workspace.init();
+    workspace.load();
+    override_output_format(&workspace, "table");
+
+    let exported = workspace.run_ok(&["export"]).stdout;
+    let export_rows = parse_jsonl_rows(&exported);
+    assert!(!export_rows.is_empty());
+    assert!(export_rows.iter().any(|row| row["type"] == "Character"));
+
+    let changes = workspace.run_ok(&["changes"]).stdout;
+    let change_rows = parse_jsonl_rows(&changes);
+    assert!(!change_rows.is_empty());
+    assert!(
+        change_rows
+            .iter()
+            .all(|row| row.get("db_version").is_some())
+    );
+}
+
+#[test]
+fn export_and_changes_can_omit_embedding_vectors() {
+    let workspace = ExampleWorkspace::copy(ExampleProject::Starwars);
+    workspace.init();
+    workspace.load();
+
+    let exported = workspace.run_ok(&["export", "--format", "jsonl"]).stdout;
+    assert!(exported.contains("\"embedding\""));
+
+    let exported_without_embeddings = workspace
+        .run_ok(&["export", "--format", "jsonl", "--no-embeddings"])
+        .stdout;
+    assert!(!exported_without_embeddings.contains("\"embedding\""));
+
+    let changes = workspace.run_ok(&["changes", "--format", "json"]).stdout;
+    assert!(changes.contains("\"embedding\""));
+
+    let changes_without_embeddings = workspace
+        .run_ok(&["changes", "--format", "json", "--no-embeddings"])
+        .stdout;
+    assert!(!changes_without_embeddings.contains("\"embedding\""));
 }
 
 #[test]

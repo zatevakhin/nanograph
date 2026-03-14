@@ -1,3 +1,4 @@
+use std::collections::{HashMap, HashSet};
 use std::io::{self, IsTerminal};
 use std::ops::Range;
 use std::path::Path;
@@ -98,6 +99,9 @@ enum Commands {
         /// Output format: jsonl or json
         #[arg(long)]
         format: Option<String>,
+        /// Omit vector embedding properties from exported rows
+        #[arg(long, default_value_t = false)]
+        no_embeddings: bool,
     },
     /// Compare two schema files without opening a database
     SchemaDiff {
@@ -113,20 +117,28 @@ enum Commands {
     },
     /// Initialize a new database
     Init {
-        /// Path to the database directory
-        db_path: Option<PathBuf>,
+        /// Database directory
+        #[arg(long)]
+        db: Option<PathBuf>,
         #[arg(long)]
         schema: Option<PathBuf>,
+        /// Deprecated positional database directory
+        #[arg(hide = true)]
+        legacy_db_path: Option<PathBuf>,
     },
     /// Load data into an existing database
     Load {
-        /// Path to the database directory
-        db_path: Option<PathBuf>,
+        /// Database directory
+        #[arg(long)]
+        db: Option<PathBuf>,
         #[arg(long)]
         data: PathBuf,
         /// Load mode: overwrite, append, or merge
         #[arg(long, value_enum)]
         mode: LoadModeArg,
+        /// Deprecated positional database directory
+        #[arg(hide = true)]
+        legacy_db_path: Option<PathBuf>,
     },
     /// Backfill or recompute @embed(...) vector properties on existing rows
     Embed {
@@ -154,19 +166,24 @@ enum Commands {
     },
     /// Delete nodes by predicate, cascading incident edges
     Delete {
-        /// Path to the database directory
-        db_path: Option<PathBuf>,
+        /// Database directory
+        #[arg(long)]
+        db: Option<PathBuf>,
         /// Node type name
         #[arg(long = "type")]
         type_name: String,
         /// Predicate expression, e.g. name=Alice or age>=30
         #[arg(long = "where")]
         predicate: String,
+        /// Deprecated positional database directory
+        #[arg(hide = true)]
+        legacy_db_path: Option<PathBuf>,
     },
     /// Stream CDC events from committed transactions
     Changes {
-        /// Path to the database directory
-        db_path: Option<PathBuf>,
+        /// Database directory
+        #[arg(long)]
+        db: Option<PathBuf>,
         /// Return changes with db_version strictly greater than this value
         #[arg(long, conflicts_with_all = ["from_version", "to_version"])]
         since: Option<u64>,
@@ -179,11 +196,18 @@ enum Commands {
         /// Output format: jsonl or json
         #[arg(long)]
         format: Option<String>,
+        /// Omit vector embedding properties from CDC payloads
+        #[arg(long, default_value_t = false)]
+        no_embeddings: bool,
+        /// Deprecated positional database directory
+        #[arg(hide = true)]
+        legacy_db_path: Option<PathBuf>,
     },
     /// Compact Lance datasets and commit updated pinned dataset versions
     Compact {
-        /// Path to the database directory
-        db_path: Option<PathBuf>,
+        /// Database directory
+        #[arg(long)]
+        db: Option<PathBuf>,
         /// Target row count per compacted fragment
         #[arg(long, default_value_t = 1_048_576)]
         target_rows_per_fragment: usize,
@@ -193,44 +217,63 @@ enum Commands {
         /// Deletion fraction threshold for materialization
         #[arg(long, default_value_t = 0.1)]
         materialize_deletions_threshold: f32,
+        /// Deprecated positional database directory
+        #[arg(hide = true)]
+        legacy_db_path: Option<PathBuf>,
     },
     /// Prune old tx/CDC history and old Lance versions while keeping replay window
     Cleanup {
-        /// Path to the database directory
-        db_path: Option<PathBuf>,
+        /// Database directory
+        #[arg(long)]
+        db: Option<PathBuf>,
         /// Keep this many latest tx versions for CDC replay
         #[arg(long, default_value_t = 128)]
         retain_tx_versions: u64,
         /// Keep at least this many latest versions per Lance dataset
         #[arg(long, default_value_t = 2)]
         retain_dataset_versions: usize,
+        /// Deprecated positional database directory
+        #[arg(hide = true)]
+        legacy_db_path: Option<PathBuf>,
     },
     /// Run consistency checks on manifest, datasets, logs, and graph integrity
     Doctor {
-        /// Path to the database directory
-        db_path: Option<PathBuf>,
+        /// Database directory
+        #[arg(long)]
+        db: Option<PathBuf>,
         /// Desired schema file to compare against the current DB schema
         #[arg(long)]
         schema: Option<PathBuf>,
         /// Show per-dataset Lance storage formats
         #[arg(long)]
         verbose: bool,
+        /// Deprecated positional database directory
+        #[arg(hide = true)]
+        legacy_db_path: Option<PathBuf>,
     },
     /// Materialize visible CDC into a derived Lance analytics dataset
     CdcMaterialize {
-        /// Path to the database directory
-        db_path: Option<PathBuf>,
+        /// Database directory
+        #[arg(long)]
+        db: Option<PathBuf>,
         /// Minimum number of new visible CDC rows required to run materialization
         #[arg(long, default_value_t = 0)]
         min_new_rows: usize,
         /// Force materialization regardless of threshold
         #[arg(long, default_value_t = false)]
         force: bool,
+        /// Deprecated positional database directory
+        #[arg(hide = true)]
+        legacy_db_path: Option<PathBuf>,
     },
     /// Diff and apply schema migration from <db>/schema.pg
     Migrate {
-        /// Path to the database directory
-        db_path: Option<PathBuf>,
+        /// Database directory
+        #[arg(long)]
+        db: Option<PathBuf>,
+        /// Desired schema file to migrate toward
+        #[arg(long)]
+        schema: Option<PathBuf>,
         /// Show migration plan without applying writes
         #[arg(long)]
         dry_run: bool,
@@ -240,6 +283,9 @@ enum Commands {
         /// Apply confirm-level steps without interactive prompts
         #[arg(long)]
         auto_approve: bool,
+        /// Deprecated positional database directory
+        #[arg(hide = true)]
+        legacy_db_path: Option<PathBuf>,
     },
     /// Parse and typecheck query files
     Check {
@@ -334,33 +380,45 @@ async fn dispatch_cli(
             verbose,
         } => {
             let db = config.resolve_db_path(db)?;
-            let format = config.resolve_format(format.as_deref(), "table", &["table", "json"])?;
+            let format =
+                config.resolve_command_format(format.as_deref(), "table", &["table", "json"])?;
             cmd_describe(db, &format, json, type_name.as_deref(), verbose, quiet).await
         }
-        Commands::Export { db, format } => {
+        Commands::Export {
+            db,
+            format,
+            no_embeddings,
+        } => {
             let db = config.resolve_db_path(db)?;
-            let format = config.resolve_format(format.as_deref(), "jsonl", &["jsonl", "json"])?;
-            cmd_export(db, &format, json).await
+            let format =
+                config.resolve_command_format(format.as_deref(), "jsonl", &["jsonl", "json"])?;
+            cmd_export(db, &format, json, no_embeddings).await
         }
         Commands::SchemaDiff {
             from_schema,
             to_schema,
             format,
         } => {
-            let format = config.resolve_format(format.as_deref(), "table", &["table", "json"])?;
+            let format =
+                config.resolve_command_format(format.as_deref(), "table", &["table", "json"])?;
             cmd_schema_diff(&from_schema, &to_schema, &format, json, quiet).await
         }
-        Commands::Init { db_path, schema } => {
-            let db_path = config.resolve_db_path(db_path)?;
+        Commands::Init {
+            db,
+            schema,
+            legacy_db_path,
+        } => {
+            let db_path = config.resolve_db_path(db.or(legacy_db_path))?;
             let schema = config.resolve_schema_path(schema)?;
             cmd_init(&db_path, &schema, json, quiet).await
         }
         Commands::Load {
-            db_path,
+            db,
             data,
             mode,
+            legacy_db_path,
         } => {
-            let db_path = config.resolve_db_path(db_path)?;
+            let db_path = config.resolve_db_path(db.or(legacy_db_path))?;
             cmd_load(&db_path, &data, mode, json, quiet).await
         }
         Commands::Embed {
@@ -389,31 +447,45 @@ async fn dispatch_cli(
             .await
         }
         Commands::Delete {
-            db_path,
+            db,
             type_name,
             predicate,
+            legacy_db_path,
         } => {
-            let db_path = config.resolve_db_path(db_path)?;
+            let db_path = config.resolve_db_path(db.or(legacy_db_path))?;
             cmd_delete(&db_path, &type_name, &predicate, json, quiet).await
         }
         Commands::Changes {
-            db_path,
+            db,
             since,
             from_version,
             to_version,
             format,
+            no_embeddings,
+            legacy_db_path,
         } => {
-            let db_path = config.resolve_db_path(db_path)?;
-            let format = config.resolve_format(format.as_deref(), "jsonl", &["jsonl", "json"])?;
-            cmd_changes(&db_path, since, from_version, to_version, &format, json).await
+            let db_path = config.resolve_db_path(db.or(legacy_db_path))?;
+            let format =
+                config.resolve_command_format(format.as_deref(), "jsonl", &["jsonl", "json"])?;
+            cmd_changes(
+                &db_path,
+                since,
+                from_version,
+                to_version,
+                &format,
+                json,
+                no_embeddings,
+            )
+            .await
         }
         Commands::Compact {
-            db_path,
+            db,
             target_rows_per_fragment,
             materialize_deletions,
             materialize_deletions_threshold,
+            legacy_db_path,
         } => {
-            let db_path = config.resolve_db_path(db_path)?;
+            let db_path = config.resolve_db_path(db.or(legacy_db_path))?;
             cmd_compact(
                 &db_path,
                 target_rows_per_fragment,
@@ -425,11 +497,12 @@ async fn dispatch_cli(
             .await
         }
         Commands::Cleanup {
-            db_path,
+            db,
             retain_tx_versions,
             retain_dataset_versions,
+            legacy_db_path,
         } => {
-            let db_path = config.resolve_db_path(db_path)?;
+            let db_path = config.resolve_db_path(db.or(legacy_db_path))?;
             cmd_cleanup(
                 &db_path,
                 retain_tx_versions,
@@ -440,33 +513,48 @@ async fn dispatch_cli(
             .await
         }
         Commands::Doctor {
-            db_path,
+            db,
             schema,
             verbose,
+            legacy_db_path,
         } => {
-            let db_path = config.resolve_db_path(db_path)?;
+            let db_path = config.resolve_db_path(db.or(legacy_db_path))?;
             let schema = schema
                 .map(|path| config.resolve_schema_path(Some(path)))
                 .transpose()?;
             cmd_doctor(&db_path, schema.as_deref(), verbose, json, quiet).await
         }
         Commands::CdcMaterialize {
-            db_path,
+            db,
             min_new_rows,
             force,
+            legacy_db_path,
         } => {
-            let db_path = config.resolve_db_path(db_path)?;
+            let db_path = config.resolve_db_path(db.or(legacy_db_path))?;
             cmd_cdc_materialize(&db_path, min_new_rows, force, json, quiet).await
         }
         Commands::Migrate {
-            db_path,
+            db,
+            schema,
             dry_run,
             format,
             auto_approve,
+            legacy_db_path,
         } => {
-            let db_path = config.resolve_db_path(db_path)?;
-            let format = config.resolve_format(format.as_deref(), "table", &["table", "json"])?;
-            cmd_migrate(&db_path, dry_run, &format, auto_approve, json, quiet).await
+            let db_path = config.resolve_db_path(db.or(legacy_db_path))?;
+            let schema = config.resolve_optional_schema_path(schema);
+            let format =
+                config.resolve_command_format(format.as_deref(), "table", &["table", "json"])?;
+            cmd_migrate(
+                &db_path,
+                schema.as_deref(),
+                dry_run,
+                &format,
+                auto_approve,
+                json,
+                quiet,
+            )
+            .await
         }
         Commands::Check { db, query, schema } => {
             let db = config.resolve_db_path(db)?;
@@ -1219,16 +1307,93 @@ async fn cmd_changes(
     to_version: Option<u64>,
     format: &str,
     json: bool,
+    no_embeddings: bool,
 ) -> Result<()> {
     let window = resolve_changes_window(since, from_version, to_version)?;
-    let rows = read_visible_cdc_entries(
+    let mut rows = read_visible_cdc_entries(
         db_path,
         window.from_db_version_exclusive,
         window.to_db_version_inclusive,
     )?;
+    if no_embeddings {
+        let db = Database::open(db_path).await?;
+        let embedding_props = build_embedding_property_map(&db);
+        strip_embedding_payloads(&mut rows, &embedding_props);
+    }
 
     let effective_format = if json { "json" } else { format };
     render_changes(effective_format, &rows)
+}
+
+fn build_embedding_property_map(db: &Database) -> HashMap<(String, String), HashSet<String>> {
+    let mut out = HashMap::new();
+    for node in db.schema_ir.node_types() {
+        let props = node
+            .properties
+            .iter()
+            .filter(|prop| is_embedding_property(prop))
+            .map(|prop| prop.name.clone())
+            .collect::<HashSet<_>>();
+        if !props.is_empty() {
+            out.insert(("node".to_string(), node.name.clone()), props);
+        }
+    }
+    for edge in db.schema_ir.edge_types() {
+        let props = edge
+            .properties
+            .iter()
+            .filter(|prop| is_embedding_property(prop))
+            .map(|prop| prop.name.clone())
+            .collect::<HashSet<_>>();
+        if !props.is_empty() {
+            out.insert(("edge".to_string(), edge.name.clone()), props);
+        }
+    }
+    out
+}
+
+fn is_embedding_property(prop: &nanograph::schema_ir::PropDef) -> bool {
+    prop.embed_source.is_some() || prop.scalar_type.starts_with("Vector(")
+}
+
+fn strip_embedding_payloads(
+    rows: &mut [CdcLogEntry],
+    embedding_props: &HashMap<(String, String), HashSet<String>>,
+) {
+    for row in rows {
+        let Some(props) = embedding_props.get(&(row.entity_kind.clone(), row.type_name.clone()))
+        else {
+            continue;
+        };
+        strip_embedding_fields_from_payload(&mut row.payload, props);
+    }
+}
+
+fn strip_embedding_fields_from_payload(
+    payload: &mut serde_json::Value,
+    embedding_props: &HashSet<String>,
+) {
+    if let Some(object) = payload.as_object_mut() {
+        if let Some(before) = object.get_mut("before") {
+            strip_embedding_fields_from_row(before, embedding_props);
+        }
+        if let Some(after) = object.get_mut("after") {
+            strip_embedding_fields_from_row(after, embedding_props);
+        }
+        if object.contains_key("before") || object.contains_key("after") {
+            return;
+        }
+    }
+    strip_embedding_fields_from_row(payload, embedding_props);
+}
+
+fn strip_embedding_fields_from_row(row: &mut serde_json::Value, embedding_props: &HashSet<String>) {
+    let Some(object) = row.as_object_mut() else {
+        return;
+    };
+    for prop in embedding_props {
+        object.remove(prop);
+    }
 }
 
 fn render_changes(format: &str, rows: &[CdcLogEntry]) -> Result<()> {
@@ -1750,6 +1915,9 @@ async fn cmd_check(
     let mut error_count = 0;
     let mut checks = Vec::with_capacity(queries.queries.len());
     for q in &queries.queries {
+        let mutation_warning = (q.mutation.is_some() && q.params.is_empty()).then(|| {
+            "mutation declares no params; hardcoded mutations are easy to miss".to_string()
+        });
         match typecheck_query_decl(&catalog, q) {
             Ok(CheckedQuery::Read(_)) => {
                 if !json && !quiet {
@@ -1778,12 +1946,26 @@ async fn cmd_check(
                             stdout_supports_color()
                         )
                     );
+                    if let Some(warning) = &mutation_warning {
+                        println!(
+                            "{}",
+                            format_status_line(
+                                StatusTone::Warn,
+                                &format!("query `{}`: {}", q.name, warning),
+                                stdout_supports_color()
+                            )
+                        );
+                    }
                 }
-                checks.push(serde_json::json!({
+                let mut check = serde_json::json!({
                     "name": q.name,
                     "kind": "mutation",
                     "status": "ok",
-                }));
+                });
+                if let Some(warning) = mutation_warning {
+                    check["warnings"] = serde_json::json!([warning]);
+                }
+                checks.push(check);
             }
             Err(e) => {
                 let rendered_error = render_check_error(&e, &db_path, schema_drift.as_ref());

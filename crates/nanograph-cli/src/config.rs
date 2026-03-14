@@ -165,6 +165,29 @@ impl LoadedConfig {
         self.validate_format(value, allowed)
     }
 
+    pub fn resolve_command_format(
+        &self,
+        cli_format: Option<&str>,
+        fallback: &'static str,
+        allowed: &[&str],
+    ) -> Result<String> {
+        let value = if let Some(value) = cli_format {
+            value.to_string()
+        } else if let Some(configured) = self.settings.cli.output_format.clone() {
+            if allowed
+                .iter()
+                .any(|allowed_value| *allowed_value == configured)
+            {
+                configured
+            } else {
+                fallback.to_string()
+            }
+        } else {
+            fallback.to_string()
+        };
+        self.validate_format(value, allowed)
+    }
+
     pub fn resolve_db_path(&self, cli_path: Option<PathBuf>) -> Result<PathBuf> {
         match self.resolve_optional_db_path(cli_path) {
             Some(path) => Ok(path),
@@ -551,6 +574,31 @@ mod tests {
             "json"
         );
         assert!(cfg.effective_json(false));
+    }
+
+    #[test]
+    fn resolve_command_format_falls_back_when_config_default_is_unsupported() {
+        let cfg = LoadedConfig {
+            path: None,
+            base_dir: PathBuf::from("/tmp"),
+            settings: NanographConfig {
+                cli: CliDefaults {
+                    output_format: Some("table".to_string()),
+                    ..CliDefaults::default()
+                },
+                ..NanographConfig::default()
+            },
+        };
+
+        assert_eq!(
+            cfg.resolve_command_format(None, "jsonl", &["jsonl", "json"])
+                .unwrap(),
+            "jsonl"
+        );
+        assert!(
+            cfg.resolve_command_format(Some("table"), "jsonl", &["jsonl", "json"])
+                .is_err()
+        );
     }
 
     #[test]

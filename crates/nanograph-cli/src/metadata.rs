@@ -522,12 +522,17 @@ fn print_describe_table(payload: &serde_json::Value, verbose: bool) {
     }
 }
 
-#[instrument(fields(db_path = %db_path.display(), format = format))]
-pub(crate) async fn cmd_export(db_path: PathBuf, format: &str, json: bool) -> Result<()> {
+#[instrument(fields(db_path = %db_path.display(), format = format, no_embeddings = no_embeddings))]
+pub(crate) async fn cmd_export(
+    db_path: PathBuf,
+    format: &str,
+    json: bool,
+    no_embeddings: bool,
+) -> Result<()> {
     let db = Database::open(&db_path).await?;
     let effective_format = if json { "json" } else { format };
     let include_internal_fields = effective_format == "json";
-    let rows = build_export_rows(&db, include_internal_fields)?;
+    let rows = build_export_rows(&db, include_internal_fields, !no_embeddings)?;
 
     match effective_format {
         "jsonl" => {
@@ -552,6 +557,7 @@ pub(crate) async fn cmd_export(db_path: PathBuf, format: &str, json: bool) -> Re
 pub(crate) fn build_export_rows(
     db: &Database,
     include_internal_fields: bool,
+    include_embeddings: bool,
 ) -> Result<Vec<serde_json::Value>> {
     use arrow_array::{Array, UInt64Array};
 
@@ -595,7 +601,18 @@ pub(crate) fn build_export_rows(
                 key_tokens.insert(id, key_token);
             }
 
-            let data = export_data_map(&batch, row_idx, &[0]);
+            let data = export_data_map(
+                &batch,
+                row_idx,
+                &[0],
+                node.properties.iter().filter_map(|prop| {
+                    if include_embeddings || !is_embedding_property(prop) {
+                        None
+                    } else {
+                        Some(prop.name.as_str())
+                    }
+                }),
+            );
             let mut row = serde_json::json!({
                 "type": node.name,
                 "data": data,
@@ -655,7 +672,18 @@ pub(crate) fn build_export_rows(
                         dst
                     )
                 })?;
-            let data = export_data_map(&batch, row_idx, &[0, 1, 2]);
+            let data = export_data_map(
+                &batch,
+                row_idx,
+                &[0, 1, 2],
+                edge.properties.iter().filter_map(|prop| {
+                    if include_embeddings || !is_embedding_property(prop) {
+                        None
+                    } else {
+                        Some(prop.name.as_str())
+                    }
+                }),
+            );
 
             let mut row = serde_json::json!({
                 "edge": edge.name,
@@ -698,15 +726,24 @@ fn export_key_token(array: &ArrayRef, row_idx: usize, prop_name: &str) -> Result
     }
 }
 
-fn export_data_map(
+fn export_data_map<I, S>(
     batch: &RecordBatch,
     row_idx: usize,
     excluded_indices: &[usize],
-) -> serde_json::Value {
+    excluded_names: I,
+) -> serde_json::Value
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
     let excluded = excluded_indices.iter().copied().collect::<HashSet<_>>();
+    let excluded_names = excluded_names
+        .into_iter()
+        .map(|name| name.as_ref().to_string())
+        .collect::<HashSet<_>>();
     let mut data = serde_json::Map::new();
     for (col_idx, field) in batch.schema().fields().iter().enumerate() {
-        if excluded.contains(&col_idx) {
+        if excluded.contains(&col_idx) || excluded_names.contains(field.name()) {
             continue;
         }
         data.insert(
@@ -715,6 +752,10 @@ fn export_data_map(
         );
     }
     serde_json::Value::Object(data)
+}
+
+fn is_embedding_property(prop: &nanograph::schema_ir::PropDef) -> bool {
+    prop.embed_source.is_some() || prop.scalar_type.starts_with("Vector(")
 }
 
 fn prop_type_string(prop: &nanograph::schema_ir::PropDef) -> String {
