@@ -1056,49 +1056,51 @@ query products_from_image_search($q: String) {
     it("loadRows imports media files and fills the mime property", async () => {
       const db = await freshMediaDb();
       const heroPath = await writeJpegAsset("hero");
-
-      await db.loadRows(
-        [
-          {
-            type: "PhotoAsset",
-            data: {
-              slug: "hero",
-              uri: mediaFile(heroPath, "image/jpeg"),
-              embedding: placeholderEmbedding,
+      await withMockEmbeddings(async () => {
+        await db.loadRows(
+          [
+            {
+              type: "PhotoAsset",
+              data: {
+                slug: "hero",
+                uri: mediaFile(heroPath, "image/jpeg"),
+                embedding: placeholderEmbedding,
+              },
             },
-          },
-        ],
-        "overwrite",
-      );
+          ],
+          "overwrite",
+        );
 
-      const rows = await db.run(MEDIA_QUERIES, "photo_by_slug", { slug: "hero" });
-      assert.equal(rows.length, 1);
-      assert.equal(rows[0].mime, "image/jpeg");
-      assert.match(rows[0].uri, /^file:\/\//);
+        const rows = await db.run(MEDIA_QUERIES, "photo_by_slug", { slug: "hero" });
+        assert.equal(rows.length, 1);
+        assert.equal(rows[0].mime, "image/jpeg");
+        assert.match(rows[0].uri, /^file:\/\//);
+      });
       await db.close();
     });
 
     it("loadRows imports base64 media and fills the mime property", async () => {
       const db = await freshMediaDb();
-
-      await db.loadRows(
-        [
-          {
-            type: "PhotoAsset",
-            data: {
-              slug: "inline",
-              uri: mediaBase64("/9j/2Q==", "image/jpeg"),
-              embedding: placeholderEmbedding,
+      await withMockEmbeddings(async () => {
+        await db.loadRows(
+          [
+            {
+              type: "PhotoAsset",
+              data: {
+                slug: "inline",
+                uri: mediaBase64("/9j/2Q==", "image/jpeg"),
+                embedding: placeholderEmbedding,
+              },
             },
-          },
-        ],
-        "overwrite",
-      );
+          ],
+          "overwrite",
+        );
 
-      const rows = await db.run(MEDIA_QUERIES, "photo_by_slug", { slug: "inline" });
-      assert.equal(rows.length, 1);
-      assert.equal(rows[0].mime, "image/jpeg");
-      assert.match(rows[0].uri, /^file:\/\//);
+        const rows = await db.run(MEDIA_QUERIES, "photo_by_slug", { slug: "inline" });
+        assert.equal(rows.length, 1);
+        assert.equal(rows[0].mime, "image/jpeg");
+        assert.match(rows[0].uri, /^file:\/\//);
+      });
       await db.close();
     });
 
@@ -1107,33 +1109,33 @@ query products_from_image_search($q: String) {
       const spacePath = await writeJpegAsset("space");
       const beachPath = await writeJpegAsset("beach");
 
-      await db.loadRows(
-        [
-          {
-            type: "PhotoAsset",
-            data: {
-              slug: "space",
-              uri: mediaUri(pathToFileURL(spacePath).toString(), "image/jpeg"),
-              embedding: placeholderEmbedding,
-            },
-          },
-          {
-            type: "PhotoAsset",
-            data: {
-              slug: "beach",
-              uri: mediaUri(pathToFileURL(beachPath).toString(), "image/jpeg"),
-              embedding: placeholderEmbedding,
-            },
-          },
-          { type: "Product", data: { slug: "rocket", name: "Rocket Poster" } },
-          { type: "Product", data: { slug: "sand", name: "Beach Poster" } },
-          { edge: "HasPhoto", from: "rocket", to: "space" },
-          { edge: "HasPhoto", from: "sand", to: "beach" },
-        ],
-        "overwrite",
-      );
-
       await withMockEmbeddings(async () => {
+        await db.loadRows(
+          [
+            {
+              type: "PhotoAsset",
+              data: {
+                slug: "space",
+                uri: mediaUri(pathToFileURL(spacePath).toString(), "image/jpeg"),
+                embedding: placeholderEmbedding,
+              },
+            },
+            {
+              type: "PhotoAsset",
+              data: {
+                slug: "beach",
+                uri: mediaUri(pathToFileURL(beachPath).toString(), "image/jpeg"),
+                embedding: placeholderEmbedding,
+              },
+            },
+            { type: "Product", data: { slug: "rocket", name: "Rocket Poster" } },
+            { type: "Product", data: { slug: "sand", name: "Beach Poster" } },
+            { edge: "HasPhoto", from: "rocket", to: "space" },
+            { edge: "HasPhoto", from: "sand", to: "beach" },
+          ],
+          "overwrite",
+        );
+
         const onlyNull = await db.embed({
           typeName: "PhotoAsset",
           property: "embedding",

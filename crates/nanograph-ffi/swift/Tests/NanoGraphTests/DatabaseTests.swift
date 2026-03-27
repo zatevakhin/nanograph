@@ -439,23 +439,25 @@ final class DatabaseTests: XCTestCase {
         defer { cleanup(dbPath: assetsDir) }
         try writeJpegAsset(heroPath)
 
-        try db.loadRows([
-            .node(type: "PhotoAsset", data: [
-                "slug": "hero",
-                "uri": MediaRef.file(heroPath, mimeType: "image/jpeg"),
-                "embedding": placeholderEmbedding,
-            ])
-        ], mode: .overwrite)
+        try withMockEmbeddings {
+            try db.loadRows([
+                .node(type: "PhotoAsset", data: [
+                    "slug": "hero",
+                    "uri": MediaRef.file(heroPath, mimeType: "image/jpeg"),
+                    "embedding": placeholderEmbedding,
+                ])
+            ], mode: .overwrite)
 
-        let raw = try db.run(
-            querySource: mediaQueries,
-            queryName: "photo_by_slug",
-            params: ["slug": "hero"]
-        )
-        let rows = try castRows(raw)
-        XCTAssertEqual(rows.count, 1)
-        XCTAssertEqual(rows[0]["mime"] as? String, "image/jpeg")
-        XCTAssertTrue((rows[0]["uri"] as? String)?.hasPrefix("file://") == true)
+            let raw = try db.run(
+                querySource: mediaQueries,
+                queryName: "photo_by_slug",
+                params: ["slug": "hero"]
+            )
+            let rows = try castRows(raw)
+            XCTAssertEqual(rows.count, 1)
+            XCTAssertEqual(rows[0]["mime"] as? String, "image/jpeg")
+            XCTAssertTrue((rows[0]["uri"] as? String)?.hasPrefix("file://") == true)
+        }
     }
 
     func testLoadRowsImportsBase64MediaAndFillsMime() throws {
@@ -463,23 +465,25 @@ final class DatabaseTests: XCTestCase {
         defer { cleanup(dbPath: dbPath) }
         defer { try? db.close() }
 
-        try db.loadRows([
-            .node(type: "PhotoAsset", data: [
-                "slug": "inline",
-                "uri": MediaRef.base64("/9j/2Q==", mimeType: "image/jpeg"),
-                "embedding": placeholderEmbedding,
-            ])
-        ], mode: .overwrite)
+        try withMockEmbeddings {
+            try db.loadRows([
+                .node(type: "PhotoAsset", data: [
+                    "slug": "inline",
+                    "uri": MediaRef.base64("/9j/2Q==", mimeType: "image/jpeg"),
+                    "embedding": placeholderEmbedding,
+                ])
+            ], mode: .overwrite)
 
-        let raw = try db.run(
-            querySource: mediaQueries,
-            queryName: "photo_by_slug",
-            params: ["slug": "inline"]
-        )
-        let rows = try castRows(raw)
-        XCTAssertEqual(rows.count, 1)
-        XCTAssertEqual(rows[0]["mime"] as? String, "image/jpeg")
-        XCTAssertTrue((rows[0]["uri"] as? String)?.hasPrefix("file://") == true)
+            let raw = try db.run(
+                querySource: mediaQueries,
+                queryName: "photo_by_slug",
+                params: ["slug": "inline"]
+            )
+            let rows = try castRows(raw)
+            XCTAssertEqual(rows.count, 1)
+            XCTAssertEqual(rows[0]["mime"] as? String, "image/jpeg")
+            XCTAssertTrue((rows[0]["uri"] as? String)?.hasPrefix("file://") == true)
+        }
     }
 
     func testEmbedBackfillsMediaEmbeddingsAndTraversesFromImages() throws {
@@ -495,24 +499,24 @@ final class DatabaseTests: XCTestCase {
         try writeJpegAsset(spacePath)
         try writeJpegAsset(beachPath)
 
-        try db.loadRows([
-            .node(type: "PhotoAsset", data: [
-                "slug": "space",
-                "uri": MediaRef.uri(URL(fileURLWithPath: spacePath).absoluteString, mimeType: "image/jpeg"),
-                "embedding": placeholderEmbedding,
-            ]),
-            .node(type: "PhotoAsset", data: [
-                "slug": "beach",
-                "uri": MediaRef.uri(URL(fileURLWithPath: beachPath).absoluteString, mimeType: "image/jpeg"),
-                "embedding": placeholderEmbedding,
-            ]),
-            .node(type: "Product", data: ["slug": "rocket", "name": "Rocket Poster"]),
-            .node(type: "Product", data: ["slug": "sand", "name": "Beach Poster"]),
-            .edge(type: "HasPhoto", from: "rocket", to: "space", data: [:]),
-            .edge(type: "HasPhoto", from: "sand", to: "beach", data: [:]),
-        ], mode: .overwrite)
-
         try withMockEmbeddings {
+            try db.loadRows([
+                .node(type: "PhotoAsset", data: [
+                    "slug": "space",
+                    "uri": MediaRef.uri(URL(fileURLWithPath: spacePath).absoluteString, mimeType: "image/jpeg"),
+                    "embedding": placeholderEmbedding,
+                ]),
+                .node(type: "PhotoAsset", data: [
+                    "slug": "beach",
+                    "uri": MediaRef.uri(URL(fileURLWithPath: beachPath).absoluteString, mimeType: "image/jpeg"),
+                    "embedding": placeholderEmbedding,
+                ]),
+                .node(type: "Product", data: ["slug": "rocket", "name": "Rocket Poster"]),
+                .node(type: "Product", data: ["slug": "sand", "name": "Beach Poster"]),
+                .edge(type: "HasPhoto", from: "rocket", to: "space", data: [:]),
+                .edge(type: "HasPhoto", from: "sand", to: "beach", data: [:]),
+            ], mode: .overwrite)
+
             let onlyNull = try db.embed(EmbedResult.self, options: EmbedOptions(
                 typeName: "PhotoAsset",
                 property: "embedding",
