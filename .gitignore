@@ -17,6 +17,10 @@ backlog/
 search-test/
 .agents
 
+# Nix
+result
+.direnv/
+
 # SDK build artifacts
 crates/nanograph-ffi/swift/.build/
 crates/nanograph-ts/*.tgz
