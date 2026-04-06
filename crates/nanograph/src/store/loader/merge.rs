@@ -103,6 +103,8 @@ pub(crate) async fn merge_storage_with_node_keys(
         }
     }
 
+    merged.set_next_node_id(next_node_id);
+    merged.set_next_edge_id(next_edge_id);
     Ok(MergeStorageResult { storage: merged })
 }
 
@@ -197,6 +199,8 @@ pub(crate) fn append_storage(
         }
     }
 
+    appended.set_next_node_id(next_node_id);
+    appended.set_next_edge_id(next_edge_id);
     Ok(MergeStorageResult { storage: appended })
 }
 
@@ -1322,5 +1326,185 @@ edge Knows: Person -> Person"#;
             *id_by_name.get("Bob").unwrap(),
             *id_by_name.get("Bob").unwrap()
         )));
+    }
+
+    #[tokio::test]
+    async fn sparse_merge_preserves_global_next_node_id() {
+        // Schema: Person (keyed by name) + Item (keyed by label)
+        let schema_src = r#"node Person {
+    name: String @key
+}
+node Item {
+    label: String @key
+}"#;
+        let schema = parse_schema(schema_src).unwrap();
+        let schema_ir = build_schema_ir(&schema).unwrap();
+        let catalog = build_catalog_from_ir(&schema_ir).unwrap();
+
+        // Existing: Person(ID=0), Item(ID=1, ID=2) -- next_node_id should be 3
+        let mut existing = DatasetAccumulator::new(catalog.clone());
+        let person_schema =
+            Arc::new(Schema::new(vec![Field::new("name", DataType::Utf8, false)]));
+        let item_schema =
+            Arc::new(Schema::new(vec![Field::new("label", DataType::Utf8, false)]));
+
+        existing
+            .insert_nodes(
+                "Person",
+                RecordBatch::try_new(
+                    person_schema.clone(),
+                    vec![Arc::new(StringArray::from(vec!["Alice"])) as ArrayRef],
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        existing
+            .insert_nodes(
+                "Item",
+                RecordBatch::try_new(
+                    item_schema.clone(),
+                    vec![Arc::new(StringArray::from(vec!["Widget", "Gadget"])) as ArrayRef],
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(existing.next_node_id(), 3);
+
+        // Incoming: only Person (sparse -- Item not touched)
+        let mut incoming = DatasetAccumulator::new(catalog.clone());
+        incoming.set_next_node_id(existing.next_node_id());
+        incoming
+            .insert_nodes(
+                "Person",
+                RecordBatch::try_new(
+                    person_schema,
+                    vec![Arc::new(StringArray::from(vec!["Alice"])) as ArrayRef],
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        // incoming.next_node_id() is 4 because insert_nodes started from 3,
+        // but the merge should still preserve global counter >= 3
+
+        let key_props = HashMap::from([("Person".to_string(), "name".to_string())]);
+        let result = merge_storage_with_node_keys(
+            std::path::Path::new("/tmp/test"),
+            &existing,
+            &incoming,
+            &schema_ir,
+            &key_props,
+        )
+        .await
+        .unwrap();
+
+        // The merged accumulator must preserve the global counter.
+        // Without the fix, merged.next_node_id() would regress to 1 (max of Person IDs + 1)
+        // because Item nodes (IDs 1,2) are not in the sparse scope.
+        assert!(
+            result.storage.next_node_id() >= 3,
+            "next_node_id regressed to {} (expected >= 3)",
+            result.storage.next_node_id()
+        );
+    }
+
+    #[test]
+    fn sparse_append_preserves_global_next_node_id() {
+        // Schema: Person + Item (two node types, no edges needed)
+        let schema_src = r#"node Person {
+    name: String
+}
+node Item {
+    label: String
+}"#;
+        let schema = parse_schema(schema_src).unwrap();
+        let schema_ir = build_schema_ir(&schema).unwrap();
+        let catalog = build_catalog_from_ir(&schema_ir).unwrap();
+
+        // Existing: Person(ID=0), Item(ID=1, ID=2, ID=3) -- next_node_id = 4
+        let mut existing = DatasetAccumulator::new(catalog.clone());
+        let person_schema =
+            Arc::new(Schema::new(vec![Field::new("name", DataType::Utf8, false)]));
+        let item_schema =
+            Arc::new(Schema::new(vec![Field::new("label", DataType::Utf8, false)]));
+
+        existing
+            .insert_nodes(
+                "Person",
+                RecordBatch::try_new(
+                    person_schema.clone(),
+                    vec![Arc::new(StringArray::from(vec!["Alice"])) as ArrayRef],
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        existing
+            .insert_nodes(
+                "Item",
+                RecordBatch::try_new(
+                    item_schema,
+                    vec![
+                        Arc::new(StringArray::from(vec!["Widget", "Gadget", "Doohickey"]))
+                            as ArrayRef,
+                    ],
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(existing.next_node_id(), 4);
+
+        // Incoming: only Person (sparse append -- Item not in incoming)
+        let mut incoming = DatasetAccumulator::new(catalog);
+        incoming.set_next_node_id(existing.next_node_id());
+        incoming
+            .insert_nodes(
+                "Person",
+                RecordBatch::try_new(
+                    person_schema,
+                    vec![Arc::new(StringArray::from(vec!["Bob"])) as ArrayRef],
+                )
+                .unwrap(),
+            )
+            .unwrap();
+
+        let result = append_storage(&existing, &incoming, &schema_ir).unwrap();
+
+        // Without the fix, appended.next_node_id() would regress to max(Person IDs) + 1
+        // because Item nodes are carried over via load_node_batch (max-tracking),
+        // but the local next_node_id counter (which accounts for the append allocation)
+        // was never written back.
+        assert!(
+            result.storage.next_node_id() >= 5,
+            "next_node_id regressed to {} (expected >= 5, existing had 4 nodes + 1 appended)",
+            result.storage.next_node_id()
+        );
+
+        // Verify the appended Person node got a non-colliding ID
+        let nodes = result.storage.get_all_nodes("Person").unwrap().unwrap();
+        let ids = nodes
+            .column(0)
+            .as_any()
+            .downcast_ref::<UInt64Array>()
+            .unwrap();
+        let items = result.storage.get_all_nodes("Item").unwrap().unwrap();
+        let item_ids = items
+            .column(0)
+            .as_any()
+            .downcast_ref::<UInt64Array>()
+            .unwrap();
+
+        let mut all_ids: Vec<u64> = Vec::new();
+        for i in 0..ids.len() {
+            all_ids.push(ids.value(i));
+        }
+        for i in 0..item_ids.len() {
+            all_ids.push(item_ids.value(i));
+        }
+        let unique: std::collections::HashSet<u64> = all_ids.iter().copied().collect();
+        assert_eq!(
+            all_ids.len(),
+            unique.len(),
+            "duplicate node IDs detected: {:?}",
+            all_ids
+        );
     }
 }
