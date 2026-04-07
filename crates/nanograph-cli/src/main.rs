@@ -2462,15 +2462,29 @@ fn format_table(
         return "(empty result)\n".to_string();
     }
 
+    let is_tty = io::stdout().is_terminal();
     let mut table = Table::new();
     table
-        .load_preset(if io::stdout().is_terminal() {
+        .load_preset(if is_tty {
             UTF8_FULL_CONDENSED
         } else {
             ASCII_BORDERS_ONLY_CONDENSED
         })
         .apply_modifier(UTF8_ROUND_CORNERS)
         .set_content_arrangement(ContentArrangement::Dynamic);
+    // Explicitly set the table width. comfy-table's Dynamic arrangement
+    // queries crossterm internally, but that can fail in sandboxed builds
+    // (e.g. Nix) even when is_terminal() returns true.  We use comfy-table's
+    // own width detection and fall back to $COLUMNS or a generous default so
+    // columns never collapse to zero.
+    let detected_width = table.width();
+    if detected_width.is_none() || detected_width == Some(0) {
+        let fallback: u16 = std::env::var("COLUMNS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(200);
+        table.set_width(fallback);
+    }
     if matches!(table_cell_layout, TableCellLayout::Wrap) {
         let column_count = results[0].num_columns() as u16;
         if column_count > 0 {

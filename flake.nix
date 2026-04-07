@@ -36,7 +36,20 @@
             lockFile = ./Cargo.lock;
           };
 
+          buildFeatures = [ "nanograph-cli/local-embed" ];
+
           nativeBuildInputs = [pkgs.protobuf];
+
+          # The local-embed integration test downloads a model from
+          # HuggingFace at runtime, which the Nix sandbox blocks.
+          # Skip that single test file while keeping the rest of the suite.
+          checkFlags = [ "--skip" "local_embed" ];
+
+          # Ensure tests that inspect stdout formatting see a non-colour,
+          # non-terminal environment — the Nix sandbox can otherwise report
+          # a terminal, causing ANSI-escape assertions to fail.
+          NO_COLOR = "1";
+          TERM = "dumb";
 
           meta = {
             mainProgram = "nanograph";
